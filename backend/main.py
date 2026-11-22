@@ -83,8 +83,10 @@ def self_check():
 def system_status():
     import os
     import time as _t
-    mem_file = "memory.json"
+    mem_file = os.environ.get("MEMORY_FILE_PATH", "memory.json")
+    db_file = os.environ.get("ASTRA_DB_PATH", "astra.db")
     mem_size = os.path.getsize(mem_file) if os.path.exists(mem_file) else 0
+    db_size = os.path.getsize(db_file) if os.path.exists(db_file) else 0
     return {
         "status": "online",
         "version": "0.2.0",
@@ -92,6 +94,7 @@ def system_status():
         "llm_model": os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite") if brain.llm.provider == "gemini" else (os.environ.get("OLLAMA_MODEL", "qwen2.5:7b") if brain.llm.provider == "ollama" else None),
         "memory_entries": len(brain.memory.data),
         "memory_size_kb": round(mem_size / 1024, 1),
+        "db_size_kb": round(db_size / 1024, 1),
         "uptime_seconds": int(_t.time() - brain.started_at),
         "modules": sorted(brain.loader.all().keys()),
         "issues": brain.self_check.run(),

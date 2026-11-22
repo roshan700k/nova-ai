@@ -1,13 +1,16 @@
-APP_NAME = "NOVA AI"
+import os
 
-VERSION = "1.0.0"
+APP_NAME = os.environ.get("APP_NAME", "NOVA AI")
 
-OWNER_NAME = "Roshan"
+VERSION = os.environ.get("VERSION", "1.0.0")
 
-DEBUG = True
+OWNER_NAME = os.environ.get("OWNER_NAME", "Roshan")
 
-MEMORY_FILE = "memory.json"
+DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
 
-LOG_FILE = "logs/astra.log"
+# Use env var for memory file path (for deployment), fallback to local
+MEMORY_FILE = os.environ.get("MEMORY_FILE_PATH", "memory.json")
 
-MAX_HISTORY = 20
+LOG_FILE = os.environ.get("LOG_FILE_PATH", "logs/astra.log")
+
+MAX_HISTORY = int(os.environ.get("MAX_HISTORY", "20"))

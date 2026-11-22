@@ -1,3 +1,4 @@
+import os
 import re
 
 from brain.personality import Personality
@@ -31,7 +32,7 @@ class AstraBrain:
 
         # Core Systems
         self.intent = IntentDetector()
-        self.memory = Memory()
+        self.memory = Memory(file=os.environ.get("MEMORY_FILE_PATH", "memory.json"))
         self.personality = Personality()
         self.emotion = EmotionDetector()
         self.reasoning = ReasoningEngine(self.memory)

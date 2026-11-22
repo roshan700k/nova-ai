@@ -1,6 +1,8 @@
+import os
 import sqlite3
 
-DATABASE = "astra.db"
+# Use env var for database path (for deployment), fallback to local
+DATABASE = os.environ.get("ASTRA_DB_PATH", "astra.db")
 
 
 def connect():

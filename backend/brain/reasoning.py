@@ -1,3 +1,5 @@
+import os
+
 from memory.memory import Memory
 
 
@@ -10,7 +12,7 @@ QUESTION_PREFIXES = (
 class ReasoningEngine:
 
     def __init__(self, memory: Memory | None = None):
-        self.memory = memory or Memory()
+        self.memory = memory or Memory(file=os.environ.get("MEMORY_FILE_PATH", "memory.json"))
 
     def learn(self, question: str, answer: str, ns: str | None = None):
         self.memory.remember(self._normalize(question), answer, ns=ns)

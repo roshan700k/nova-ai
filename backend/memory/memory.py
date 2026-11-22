@@ -4,7 +4,9 @@ import os
 
 class Memory:
 
-    def __init__(self, file="memory.json"):
+    def __init__(self, file=None):
+        # Use env var for memory file path (for deployment), fallback to local
+        self.file = file or os.environ.get("MEMORY_FILE_PATH", "memory.json")
         self.file = file
 
         if os.path.exists(self.file):
