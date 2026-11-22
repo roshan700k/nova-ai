@@ -1,19 +1,25 @@
+import re
+
+
 class IntentDetector:
 
     def detect(self, message: str):
 
         text = message.lower()
 
-        if any(word in text for word in ["hi", "hello", "hey"]):
+        def has(words):
+            return any(re.search(rf"\b{re.escape(w)}\b", text) for w in words)
+
+        if has(["hi", "hello", "hey"]):
             return "greeting"
 
-        if any(word in text for word in ["remember", "save"]):
+        if has(["remember", "save"]):
             return "memory"
 
-        if any(word in text for word in ["open", "start", "launch"]):
+        if has(["open", "start", "launch"]):
             return "computer"
 
-        if any(word in text for word in ["code", "python", "javascript"]):
+        if has(["code", "python", "javascript"]):
             return "coding"
 
         return "chat"

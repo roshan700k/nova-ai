@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 for candidate in (".env", os.path.join("..", ".env")):
     load_dotenv(candidate)
 
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
+# Tried in order when the primary model errors (deprecated/overloaded)
+GEMINI_FALLBACKS = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 
@@ -70,25 +72,34 @@ class LLMBrain:
 
     def _gemini(self, message: str, history: list | None, tone_hint: str = ""):
         contents = self._build_contents(message, history)
-        url = (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{GEMINI_MODEL}:generateContent?key={self.gemini_key}"
-        )
         persona = ASTRA_PERSONA + (("\n" + tone_hint) if tone_hint else "")
         payload = {
             "system_instruction": {"parts": [{"text": persona}]},
             "contents": contents,
             "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024},
         }
-        try:
-            r = requests.post(url, json=payload, timeout=30)
-            r.raise_for_status()
-            parts = r.json()["candidates"][0]["content"]["parts"]
-            text = "".join(p.get("text", "") for p in parts).strip()
-            return text or None
-        except Exception as exc:
-            print(f"[llm] gemini error: {exc}")
-            return None
+
+        last_exc = None
+        for model in [GEMINI_MODEL] + [m for m in GEMINI_FALLBACKS if m != GEMINI_MODEL]:
+            url = (
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{model}:generateContent?key={self.gemini_key}"
+            )
+            try:
+                r = requests.post(url, json=payload, timeout=30)
+                if r.status_code in (404, 429, 500, 502, 503):
+                    last_exc = f"{model}: {r.status_code}"
+                    continue
+                r.raise_for_status()
+                parts = r.json()["candidates"][0]["content"]["parts"]
+                text = "".join(p.get("text", "") for p in parts).strip()
+                return text or None
+            except requests.RequestException as exc:
+                last_exc = f"{model}: {exc}"
+                continue
+
+        print(f"[llm] gemini error: {last_exc}")
+        return None
 
     # ---------------------------------------------------------
     # Ollama (local, free, private)

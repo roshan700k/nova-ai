@@ -103,6 +103,15 @@ class AstraBrain:
                 self.context.update(message, saved)
                 return saved
 
+            llm_reply = self.llm.think(
+                message,
+                self.context.get_history(),
+                tone_hint=self.companion.tone_hint(),
+            )
+            if llm_reply:
+                self.context.update(message, llm_reply)
+                return llm_reply
+
             return "I don't remember that."
 
         # ===== Teach =====
