@@ -221,13 +221,6 @@ export default function Dashboard() {
     setActivePage("CHAT");
   };
 
-  const pinChat = (title) => {
-    if (!pinnedChats.includes(title)) {
-      setPinnedChats([...pinnedChats, title]);
-      pushToast(`Pinned: ${title}`);
-    }
-  };
-
   const unpinChat = (title) => {
     setPinnedChats(pinnedChats.filter((t) => t !== title));
     pushToast(`Unpinned: ${title}`);
