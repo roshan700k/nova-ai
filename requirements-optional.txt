@@ -1,2 +1,11 @@
-# Optional heavy deps — install only when needed:
-# pip install moviepy opencv-python mediapipe google-api-python-client google-auth-httplib2 google-auth-oauthlib edge-tts
+# Optional heavy deps for ASTRA phases 4B/5/6 — already installed in venv
+moviepy
+opencv-python
+opencv-contrib-python
+mediapipe
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+edge-tts
+pytest
+httpx

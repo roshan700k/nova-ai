@@ -18,10 +18,16 @@ import subprocess
 from services.actions import broker
 
 try:
-    from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, ColorClip
+    # moviepy 2.x API
+    from moviepy import VideoFileClip, AudioFileClip, ImageClip, CompositeVideoClip, ColorClip
     MOVIEPY = True
 except Exception:
-    MOVIEPY = False
+    try:
+        # moviepy 1.x API
+        from moviepy.editor import VideoFileClip, AudioFileClip, ImageClip, CompositeVideoClip, ColorClip
+        MOVIEPY = True
+    except Exception:
+        MOVIEPY = False
 
 
 def _slug(text: str) -> str:
@@ -74,8 +80,10 @@ class CreatorEngine:
     def voiceover(self, text: str, out_path: str) -> str | None:
         # Try edge-tts first (better voices, free)
         try:
+            import sys
             proc = subprocess.run(
-                ["edge-tts", "--voice", "en-IN-NeerjaNeural",
+                [sys.executable, "-m", "edge_tts",
+                 "--voice", "en-IN-NeerjaNeural",
                  "--text", text[:3000], "--write-media", out_path],
                 capture_output=True, text=True, timeout=120,
             )
@@ -103,16 +111,27 @@ class CreatorEngine:
         try:
             audio = AudioFileClip(audio_path)
             duration = audio.duration
-            # 1280x720 dark background with title card + audio
-            clip = ColorClip((1280, 720), color=(10, 5, 20)).set_duration(duration)
-            txt = (
-                TextClip(title[:60], fontsize=54, color="white", font="Arial-Bold")
-                .set_position("center")
-                .set_duration(duration)
-            )
-            video = CompositeVideoClip([clip, txt]).set_audio(audio)
+
+            # Title card rendered with PIL (no ImageMagick needed)
+            from PIL import Image, ImageDraw, ImageFont
+            img = Image.new("RGB", (1280, 720), (10, 5, 20))
+            draw = ImageDraw.Draw(img)
+            try:
+                font = ImageFont.truetype("arialbd.ttf", 64)
+            except Exception:
+                font = ImageFont.load_default()
+            text = title[:60]
+            bbox = draw.textbbox((0, 0), text, font=font)
+            w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+            draw.text(((1280 - w) / 2, (720 - h) / 2), text, fill=(230, 200, 255), font=font)
+            card_path = os.path.join(self.out_dir, f"{_slug(out_name or title)}_card.png")
+            img.save(card_path)
+
+            clip = ColorClip((1280, 720), color=(10, 5, 20)).with_duration(duration)
+            txt = ImageClip(card_path).with_duration(duration)
+            video = CompositeVideoClip([clip, txt]).with_audio(audio)
             out = os.path.join(self.out_dir, f"{_slug(out_name or title)}.mp4")
-            video.write_videofile(out, fps=24, codec="libx264", audio_codec="aac", verbose=False, logger=None)
+            video.write_videofile(out, fps=24, codec="libx264", audio_codec="aac")
             return out
         except Exception as exc:
             print(f"[creator] assemble failed: {exc}")
