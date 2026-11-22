@@ -6,6 +6,9 @@ from brain.responses import ResponseEngine
 from brain.context import ContextManager
 from brain.decision import DecisionEngine
 from brain.module_manager import ModuleManager
+from brain.llm import LLMBrain
+from brain.companion import Companion
+from brain.self_check import SelfCheck
 from memory.memory import Memory
 
 from modules.chat_module import ChatModule
@@ -32,6 +35,10 @@ class AstraBrain:
         self.context = ContextManager()
         self.youtube = YouTubeModule()
         self.computer = ComputerModule()
+        self.llm = LLMBrain()
+        self.companion = Companion(self.llm)
+        self.self_check = SelfCheck(self.llm)
+        self.outbox = []
     
 
         # Decision + Modules
@@ -43,6 +50,11 @@ class AstraBrain:
         self.loader.load_modules()
 
     def think(self, message: str):
+        reply = self._think(message)
+        self.companion.record_exchange(message, self.emotion.detect(message))
+        return reply
+
+    def _think(self, message: str):
 
         if not message or not message.strip():
             return "I'm here. What would you like to do?"
@@ -98,6 +110,18 @@ class AstraBrain:
                 return "✅ Learned."
 
             return "Use: teach: question = answer"
+
+        # ===== Real AI brain (Gemini -> Ollama -> keyword fallback) =====
+
+        llm_reply = self.llm.think(
+            message,
+            self.context.get_history(),
+            tone_hint=self.companion.tone_hint(),
+        )
+
+        if llm_reply:
+            self.context.update(message, llm_reply)
+            return llm_reply
 
         # ===== Module Selection =====
 

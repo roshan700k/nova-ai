@@ -1,3 +1,6 @@
+import threading
+import time
+
 from pydantic import BaseModel, Field
 
 from database.database import create_table
@@ -41,3 +44,32 @@ def chat(data: ChatRequest):
     return {
         "reply": reply
     }
+
+
+@app.get("/notifications")
+def notifications():
+    """Proactive messages ASTRA starts on her own (check-ins, self-issues)."""
+    msgs = list(brain.outbox)
+    brain.outbox.clear()
+    return {"messages": msgs}
+
+
+@app.get("/self-check")
+def self_check():
+    """On-demand internal health report."""
+    return {"issues": brain.self_check.run()}
+
+
+def _proactive_loop():
+    while True:
+        time.sleep(60)
+        try:
+            for issue in brain.self_check.new_issues():
+                brain.outbox.append(f"[ASTRA-ALERT] {issue}")
+            if brain.companion.checkin_due():
+                brain.outbox.append(brain.companion.checkin_message())
+        except Exception:
+            pass
+
+
+threading.Thread(target=_proactive_loop, daemon=True).start()
