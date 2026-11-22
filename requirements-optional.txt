@@ -1,0 +1,2 @@
+# Optional heavy deps — install only when needed:
+# pip install moviepy opencv-python mediapipe google-api-python-client google-auth-httplib2 google-auth-oauthlib edge-tts

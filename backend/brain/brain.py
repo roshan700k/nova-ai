@@ -1,3 +1,5 @@
+import re
+
 from brain.personality import Personality
 from brain.intent import IntentDetector
 from brain.emotion import EmotionDetector
@@ -9,6 +11,8 @@ from brain.module_manager import ModuleManager
 from brain.llm import LLMBrain
 from brain.companion import Companion
 from brain.self_check import SelfCheck
+from builder.builder import BuilderAgent
+from creator.engine import CreatorEngine
 from memory.memory import Memory
 
 from modules.chat_module import ChatModule
@@ -38,6 +42,8 @@ class AstraBrain:
         self.llm = LLMBrain()
         self.companion = Companion(self.llm)
         self.self_check = SelfCheck(self.llm)
+        self.builder = BuilderAgent(self.llm)
+        self.creator = CreatorEngine(self.llm)
         self.outbox = []
     
 
@@ -112,6 +118,21 @@ class AstraBrain:
 
             return "Use: teach: question = answer"
 
+        # ===== Creator mode: "make a video about X" =====
+
+        if text.startswith("make") and "video" in text:
+            topic = text.replace("make", "", 1).replace("video", "", 1).strip(" about")
+            reply = self._creator_reply(topic or message)
+            self.context.update(message, reply)
+            return reply
+
+        # ===== Builder mode: "build me X" / "create an app" =====
+
+        if text.startswith(("build ", "create an app", "create a app", "make an app", "make a app")):
+            reply = self.builder.handle(message)
+            self.context.update(message, reply)
+            return reply
+
         # ===== Real AI brain (Gemini -> Ollama -> keyword fallback) =====
 
         llm_reply = self.llm.think(
@@ -175,3 +196,35 @@ class AstraBrain:
         self.context.update(message, reply)
 
         return reply
+
+    def _creator_reply(self, topic: str) -> str:
+        # "make 5 videos about X" -> batch of scripts+ideas
+        match = re.match(r"(\d+)\s*(?:videos?|videos?)?\s*(?:about|on|for)?\s*(.*)", topic)
+        count = 1
+        clean_topic = topic
+        m = re.match(r"(\d+)\s+", topic)
+        if m:
+            count = min(int(m.group(1)), 5)
+            clean_topic = topic[m.end():].strip(" about")
+
+        if count > 1 or "idea" in topic or "script" in topic:
+            ideas = self.creator.ideas(clean_topic or topic, count=count)
+            if not ideas:
+                return "My AI brain is offline — connect Gemini or start Ollama and I'll generate video ideas."
+            lines = [f"Here are {len(ideas)} video ideas for '{clean_topic or topic}':\n"]
+            for i, idea in enumerate(ideas, 1):
+                lines.append(f"{i}. **{idea.get('title','?')}** (score {idea.get('score','?')}/10) — {idea.get('hook','')}")
+            lines.append("\nSay 'make video: <title>' to produce one, or 'script: <title>' for just the script.")
+            return "\n".join(lines)
+
+        result = self.creator.make_video(clean_topic or topic)
+        if result.get("error"):
+            return result["error"]
+        steps = ", ".join(result.get("steps", []))
+        video = result.get("video", "")
+        return (
+            f"Done — video pipeline ran: {steps}.\n"
+            f"Video file: {video or 'not rendered (moviepy missing?)'}\n"
+            f"Upload queued for your approval (action id: {result.get('upload_action_id','-')}). "
+            "Approve it via /actions/{id}/approve — it will upload as PRIVATE."
+        )

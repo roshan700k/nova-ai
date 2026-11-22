@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API = "http://127.0.0.1:8000";
+const API = "http://localhost:8000";
 
 export async function sendMessage(message) {
     const response = await axios.post(`${API}/chat`, {
@@ -8,4 +8,14 @@ export async function sendMessage(message) {
     });
 
     return response.data.reply;
+}
+
+export async function getNotifications() {
+    const response = await axios.get(`${API}/notifications`);
+    return response.data.messages || [];
+}
+
+export async function devLogin(name) {
+    const response = await axios.post(`${API}/auth/dev-login`, { name });
+    return response.data;
 }

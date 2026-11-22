@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { sendMessage } from "../api/chatApi";
+import { sendMessage, getNotifications } from "../api/chatApi";
 
 export default function Dashboard() {
   // ============================================================
@@ -423,6 +423,29 @@ export default function Dashboard() {
       setListening(false);
     }
   };
+
+  // ============================================================
+  // PROACTIVE NOTIFICATIONS (ASTRA speaks first)
+  // ============================================================
+
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const notes = await getNotifications();
+        if (notes.length > 0) {
+          setMessages((prev) => [
+            ...prev,
+            ...notes.map((text) => ({ sender: "ASTRA", text })),
+          ]);
+        }
+      } catch (error) {
+        // backend offline — ignore silently
+      }
+    };
+
+    const timer = setInterval(poll, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // ============================================================
   // CLEANUP

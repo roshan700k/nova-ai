@@ -10,10 +10,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from brain.brain import AstraBrain
 from api.auth import router as auth_router, current_user
+from api.voice import router as voice_router
+from api.actions import router as actions_router
 
 app = FastAPI()
 
 app.include_router(auth_router)
+app.include_router(voice_router)
+app.include_router(actions_router)
 
 create_table()
 brain = AstraBrain()

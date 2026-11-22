@@ -17,3 +17,6 @@ typing-inspection==0.4.2
 typing_extensions==4.16.0
 urllib3==2.7.0
 uvicorn==0.52.1
+gtts==2.5.4
+pytest==8.4.2
+httpx==0.28.1
