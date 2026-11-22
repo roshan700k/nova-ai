@@ -494,8 +494,8 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {/* quick actions + chat bar */}
-      {activePage !== "CHAT" && (
+      {/* quick actions only on non-home pages */}
+      {activePage !== "CHAT" && activePage !== "HOME" && (
         <div className="quick-actions">
           <button className="quick-button" onClick={() => runQuickAction("Tell me something interesting")}>◉ Ask NOVA</button>
           <button className="quick-button" onClick={() => runQuickAction("Give me today's tasks")}>◇ Tasks</button>
