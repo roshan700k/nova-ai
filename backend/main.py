@@ -73,6 +73,47 @@ def self_check():
     return {"issues": brain.self_check.run()}
 
 
+@app.get("/system-status")
+def system_status():
+    import os
+    import time as _t
+    mem_file = "memory.json"
+    mem_size = os.path.getsize(mem_file) if os.path.exists(mem_file) else 0
+    return {
+        "status": "online",
+        "version": "0.2.0",
+        "llm_provider": brain.llm.provider,
+        "llm_model": os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite") if brain.llm.provider == "gemini" else (os.environ.get("OLLAMA_MODEL", "qwen2.5:7b") if brain.llm.provider == "ollama" else None),
+        "memory_entries": len(brain.memory.data),
+        "memory_size_kb": round(mem_size / 1024, 1),
+        "uptime_seconds": int(_t.time() - brain.started_at),
+        "modules": sorted(brain.loader.all().keys()),
+        "issues": brain.self_check.run(),
+    }
+
+
+@app.get("/activity")
+def activity():
+    import time as _t
+    now = _t.time()
+    items = []
+    for a in reversed(brain.activity[-30:]):
+        ago = int(now - a["time"])
+        ago_str = f"{ago}s ago" if ago < 60 else f"{ago // 60}m ago" if ago < 3600 else f"{ago // 3600}h ago"
+        items.append({"kind": a["kind"], "text": a["text"], "ago": ago_str})
+    return {"activity": items}
+
+
+@app.get("/memory")
+def memory_list(request: Request):
+    user = current_user(request)
+    ns = f"u{user['id']}" if user else None
+    mems = brain.memory.all(ns)
+    if ns is None:
+        mems = {k: v for k, v in mems.items() if ":" not in k}
+    return {"memories": mems, "user": user["name"] if user else None}
+
+
 def _proactive_loop():
     while True:
         time.sleep(60)

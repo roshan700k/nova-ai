@@ -45,6 +45,8 @@ class AstraBrain:
         self.builder = BuilderAgent(self.llm)
         self.creator = CreatorEngine(self.llm)
         self.outbox = []
+        self.activity = []
+        self.started_at = __import__("time").time()
     
 
         # Decision + Modules
@@ -59,7 +61,19 @@ class AstraBrain:
         ns = f"u{user_id}" if user_id else None
         reply = self._think(message, ns)
         self.companion.record_exchange(message, self.emotion.detect(message))
+        self.log_activity("chat", message[:80])
         return reply
+
+    def log_activity(self, kind: str, text: str):
+        import time as _t
+        self.activity.append({
+            "kind": kind,
+            "text": text,
+            "time": _t.time(),
+            "ago": "just now",
+        })
+        if len(self.activity) > 50:
+            self.activity.pop(0)
 
     def _think(self, message: str, ns: str | None = None):
 
@@ -80,6 +94,7 @@ class AstraBrain:
             if "=" in content:
                 key, value = content.split("=", 1)
                 self.memory.remember(key.strip(), value.strip(), ns=ns)
+                self.log_activity("memory", f"remembered '{key.strip()}'")
                 return f"✅ I will remember {key.strip()}."
 
             return "Use: remember key=value"
@@ -123,6 +138,7 @@ class AstraBrain:
             if "=" in content:
                 q, a = content.split("=", 1)
                 self.reasoning.learn(q.strip(), a.strip(), ns=ns)
+                self.log_activity("memory", f"learned '{q.strip()[:40]}'")
                 return "✅ Learned."
 
             return "Use: teach: question = answer"
@@ -132,6 +148,7 @@ class AstraBrain:
         if text.startswith("make") and "video" in text:
             topic = text.replace("make", "", 1).replace("video", "", 1).strip(" about")
             reply = self._creator_reply(topic or message)
+            self.log_activity("video", message[:80])
             self.context.update(message, reply)
             return reply
 
@@ -139,6 +156,7 @@ class AstraBrain:
 
         if text.startswith(("build ", "create an app", "create a app", "make an app", "make a app")):
             reply = self.builder.handle(message)
+            self.log_activity("build", message[:80])
             self.context.update(message, reply)
             return reply
 
