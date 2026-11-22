@@ -6,7 +6,6 @@ import {
   getMe,
   logout,
   getSystemStatus,
-  getActivity,
   getMemories,
 } from "../api/chatApi";
 
@@ -22,14 +21,6 @@ const MENU = [
   ["◎", "SETTINGS"],
 ];
 
-const TOOLS = [
-  ["✎", "AI Writer", "Write anything with AI"],
-  ["◇", "Image Generator", "Generate images"],
-  ["⌘", "Code Assistant", "Write and debug code"],
-  ["◈", "Voice Assistant", "Talk with NOVA"],
-  ["◎", "Research Helper", "Get information and insights"],
-];
-
 export default function Dashboard() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
@@ -42,7 +33,6 @@ export default function Dashboard() {
   const [voices, setVoices] = useState([]);
   const [user, setUser] = useState(null);
   const [status, setStatus] = useState(null);
-  const [activity, setActivity] = useState([]);
   const [memories, setMemories] = useState({});
   const [toasts, setToasts] = useState([]);
   const [chatHistory, setChatHistory] = useState(["Plan my day", "Write code", "Research topic"]);
@@ -70,12 +60,9 @@ export default function Dashboard() {
   useEffect(() => {
     getMe().then(setUser).catch(() => {});
     const pollStatus = () => getSystemStatus().then(setStatus).catch(() => setStatus({ status: "offline" }));
-    const pollActivity = () => getActivity().then((a) => setActivity(a)).catch(() => {});
     pollStatus();
-    pollActivity();
     const t1 = setInterval(pollStatus, 15000);
-    const t2 = setInterval(pollActivity, 15000);
-    return () => { clearInterval(t1); clearInterval(t2); };
+    return () => { clearInterval(t1); };
   }, []);
 
   useEffect(() => {
@@ -83,6 +70,12 @@ export default function Dashboard() {
       getMemories().then((d) => setMemories(d.memories || {})).catch(() => {});
     }
   }, [activePage]);
+
+  const pushToast = (text) => {
+    const id = Date.now();
+    setToasts((p) => [...p, { id, text }]);
+    setTimeout(() => setToasts((p) => p.filter((x) => x.id !== id)), 8000);
+  };
 
   // ---------- proactive notifications ----------
   useEffect(() => {
@@ -102,12 +95,6 @@ export default function Dashboard() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activePage]);
-
-  const pushToast = (text) => {
-    const id = Date.now();
-    setToasts((p) => [...p, { id, text }]);
-    setTimeout(() => setToasts((p) => p.filter((x) => x.id !== id)), 8000);
-  };
 
   // ---------- voice ----------
   const getAstraVoice = () => {
@@ -278,67 +265,28 @@ export default function Dashboard() {
 
   function renderHome() {
     return (
-      <div className="dashboard-grid">
-        {/* system status — REAL data */}
-        <section className="panel stats-panel">
-          <div className="section-title"><span>SYSTEM STATUS</span><span className={online ? "live" : "off"}>{online ? "LIVE" : "OFFLINE"}</span></div>
-          <div className="status-ring">
-            <div className="status-ring-inner">
-              <div className="status-small">NOVA</div>
-              <div className="status-number">{online ? "100%" : "—"}</div>
-              <div className="status-good">{online ? "SYSTEM GOOD" : "OFFLINE"}</div>
-            </div>
-          </div>
-          <StatusBar label="AI BRAIN" value={status?.llm_provider ? status.llm_provider.toUpperCase() : "OFFLINE"} pct={status?.llm_provider ? 100 : 0} />
-          <StatusBar label="MEMORY" value={`${status?.memory_entries ?? 0} entries`} pct={Math.min(100, (status?.memory_entries ?? 0) * 2)} />
-          <StatusBar label="UPTIME" value={uptime} pct={Math.min(100, (status?.uptime_seconds ?? 0) / 60)} />
-          {status?.issues?.length > 0 && (
-            <div className="issue-box">⚠ {status.issues[0]}</div>
-          )}
-        </section>
-
-        {/* avatar */}
-        <section className="panel avatar-panel">
-          <div className="avatar-orb">
-            <div className="avatar-face">
+      <div className="home-full">
+        <div className="home-hero">
+          <div className="avatar-orb-large">
+            <div className="avatar-face-large">
               <div className="avatar-ring-outer"></div>
               <div className="avatar-ring-inner"></div>
               <div className="avatar-dot"></div>
             </div>
           </div>
-          <div className="avatar-status">
+          <div className="home-status">
             {listening ? "LISTENING" : speaking ? "SPEAKING" : online ? "READY" : "OFFLINE"}
           </div>
           <div className={`voice-state ${listening || speaking ? "active" : ""}`}>
             {listening ? "Listening..." : speaking ? "Speaking..." : "◆ Voice assistant ready"}
           </div>
-        </section>
-
-        {/* tools + activity — REAL */}
-        <section className="right-panel">
-          <div className="section-title"><span>AI TOOLS</span><span>→</span></div>
-          {TOOLS.map(([icon, name, desc]) => (
-            <div className="tool" key={name} onClick={() => name === "Voice Assistant" ? startVoice() : runQuickAction(`Help me with ${name.toLowerCase()}`)}>
-              <div className="tool-icon">{icon}</div>
-              <div>
-                <div className="tool-name">{name}</div>
-                <div className="tool-desc">{desc}</div>
-              </div>
-            </div>
-          ))}
-
-          <div className="activity">
-            <div className="section-title"><span>RECENT ACTIVITY</span></div>
-            {activity.length === 0 && <div className="empty-note">No activity yet — start chatting.</div>}
-            {activity.map((a, i) => (
-              <div className="activity-item" key={i}>
-                <div className="activity-icon">{iconFor(a.kind)}</div>
-                <div className="activity-text">{a.text}</div>
-                <div className="activity-time">{a.ago}</div>
-              </div>
-            ))}
-          </div>
-        </section>
+        </div>
+        <div className="home-quick">
+          <button className="quick-chip" onClick={() => runQuickAction("Tell me something interesting")}>◆ Ask NOVA</button>
+          <button className="quick-chip" onClick={() => runQuickAction("Give me today's tasks")}>◇ Tasks</button>
+          <button className="quick-chip" onClick={() => runQuickAction("Open my calendar")}>□ Calendar</button>
+          <button className="quick-chip" onClick={() => runQuickAction("Help me with coding")}>⌘ Coding</button>
+        </div>
       </div>
     );
   }
@@ -423,18 +371,7 @@ export default function Dashboard() {
     );
   }
 
-  function iconFor(kind) {
-    return { chat: "◉", memory: "▣", build: "⌘", video: "▧" }[kind] || "◆";
-  }
 
-  function StatusBar({ label, value, pct }) {
-    return (
-      <div className="metric">
-        <div className="metric-head"><span>{label}</span><span>{value}</span></div>
-        <div className="bar"><div className="bar-fill" style={{ width: `${Math.min(100, pct)}%` }} /></div>
-      </div>
-    );
-  }
 
 
   // ---------- render ----------
@@ -783,93 +720,24 @@ button { outline: none; }
 .welcome h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.5px; background: linear-gradient(135deg, #fff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .welcome p { margin: 6px 0 0; color: #6b7280; font-size: 14px; }
 
-/* ---------- panels ---------- */
-.dashboard-grid { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 16px; margin-top: 24px; align-items: stretch; }
-.panel {
-  border: 1px solid rgba(255,255,255,.07); border-radius: 16px;
-  background: rgba(255,255,255,.025);
-  backdrop-filter: blur(10px);
-  transition: transform .2s, box-shadow .2s, border-color .2s;
-  position: relative;
+/* ---------- home full screen ---------- */
+.home-full {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: calc(100vh - 140px); padding: 20px; gap: 40px;
 }
-.panel::before {
-  content: ""; position: absolute; inset: -1px; border-radius: 16px; padding: 1px;
-  background: linear-gradient(135deg, rgba(139,92,246,.3), transparent, rgba(56,189,248,.2));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor; mask-composite: exclude;
-  opacity: 0; transition: opacity .2s;
+.home-hero {
+  display: flex; flex-direction: column; align-items: center; gap: 24px;
 }
-.panel:hover::before { opacity: 1; }
-.panel:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0,0,0,.4), 0 0 20px rgba(139,92,246,.1);
-  border-color: rgba(139,92,246,.2);
-}
-.stats-panel, .avatar-panel { padding: 24px; }
-.right-panel { padding: 24px; border-left: 1px solid rgba(255,255,255,.06); background: rgba(13,13,18,.5); overflow-y: auto; max-height: 75vh; }
-
-.section-title {
-  display: flex; justify-content: space-between; align-items: center;
-  color: #9ca3af; font-size: 11px; font-weight: 600; letter-spacing: 1.5px;
-  margin-bottom: 16px; text-transform: uppercase;
-}
-.section-title .live { color: #34d399; animation: blink-live 2s ease-in-out infinite; }
-.section-title .off { color: #f87171; }
-@keyframes blink-live { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
-
-/* status card */
-.status-ring {
-  width: 150px; height: 150px; border-radius: 50%; margin: 8px auto 24px;
-  display: grid; place-items: center; position: relative;
-  background: conic-gradient(#7c3aed 0%, #7c3aed var(--p, 100%), rgba(255,255,255,.06) 0);
-  box-shadow: 0 0 30px rgba(124,58,237,.3); transition: box-shadow .3s;
-}
-.status-ring:hover { box-shadow: 0 0 40px rgba(124,58,237,.5); }
-.status-ring::before {
-  content: ""; position: absolute; inset: 6px; border-radius: 50%;
-  background: #111118;
-}
-.status-ring-inner { position: relative; text-align: center; z-index: 1; }
-.status-small { color: #6b7280; font-size: 9px; letter-spacing: 2px; }
-.status-number { font-size: 28px; font-weight: 700; color: #fff; margin: 4px 0; }
-.status-good { color: #34d399; font-size: 10px; letter-spacing: 1px; }
-.metric { margin: 14px 0; }
-.metric-head { display: flex; justify-content: space-between; color: #9ca3af; font-size: 12px; margin-bottom: 6px; }
-.bar { height: 4px; background: rgba(255,255,255,.08); border-radius: 4px; overflow: hidden; position: relative; }
-.bar::after {
-  content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent);
-  animation: barshine 2s linear infinite;
-}
-@keyframes barshine { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
-.bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #7c3aed, #c084fc); box-shadow: 0 0 10px rgba(124,58,237,.5); transition: width .6s; position: relative; }
-.bar-fill::after {
-  content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 20px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.5));
-  animation: fillglow 1.5s ease-in-out infinite;
-}
-@keyframes fillglow { 0%,100% { opacity: .3; } 50% { opacity: 1; } }
-.issue-box {
-  margin-top: 14px; padding: 10px 12px; border-radius: 10px; font-size: 12px;
-  border: 1px solid rgba(251,191,36,.3); background: rgba(251,191,36,.08); color: #fcd34d;
-  animation: shake-warn 3s ease-in-out infinite;
-}
-@keyframes shake-warn { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
-
-/* avatar */
-.avatar-panel { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
-.avatar-orb {
-  width: 240px; height: 240px; border-radius: 50%; display: grid; place-items: center;
+.avatar-orb-large {
+  width: 320px; height: 320px; border-radius: 50%; display: grid; place-items: center;
   position: relative;
   background: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #0a0a0f 100%);
-  box-shadow: 0 20px 60px rgba(124,58,237,.3), inset 0 0 60px rgba(124,58,237,.1);
+  box-shadow: 0 30px 80px rgba(124,58,237,.4), inset 0 0 80px rgba(124,58,237,.15);
   transition: transform .3s, box-shadow .3s;
 }
-.avatar-orb:hover {
-  transform: scale(1.03);
-  box-shadow: 0 30px 80px rgba(124,58,237,.5), inset 0 0 80px rgba(124,58,237,.2);
-}
-.avatar-face {
-  position: relative; width: 160px; height: 160px;
+.avatar-orb-large:hover { transform: scale(1.05); box-shadow: 0 40px 100px rgba(124,58,237,.6), inset 0 0 100px rgba(124,58,237,.25); }
+.avatar-face-large {
+  position: relative; width: 220px; height: 220px;
 }
 .avatar-ring-outer {
   position: absolute; inset: 0; border-radius: 50%;
@@ -882,7 +750,7 @@ button { outline: none; }
 }
 .avatar-ring-outer::after { top: auto; bottom: -4px; }
 .avatar-ring-inner {
-  position: absolute; inset: 25px; border-radius: 50%;
+  position: absolute; inset: 35px; border-radius: 50%;
   border: 1px solid rgba(139,92,246,.25);
   animation: spin-reverse 8s linear infinite;
 }
@@ -896,19 +764,41 @@ button { outline: none; }
   box-shadow: 0 0 20px #a78bfa, 0 0 40px rgba(139,92,246,.6);
   animation: pulse-dot 2s ease-in-out infinite;
 }
-.avatar-status {
-  position: absolute; bottom: 110px; color: #a78bfa;
-  letter-spacing: 4px; font-size: 11px; font-weight: 600;
+.home-status {
+  font-size: 16px; color: #a78bfa; letter-spacing: 6px; font-weight: 600;
 }
 .voice-state {
-  margin-top: 24px; padding: 9px 18px; border-radius: 999px;
+  padding: 10px 24px; border-radius: 999px;
   border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04);
-  color: #9ca3af; font-size: 12px; transition: .3s;
+  color: #9ca3af; font-size: 13px; transition: .3s;
 }
 .voice-state.active { color: #e9d5ff; border-color: rgba(139,92,246,.5); box-shadow: 0 0 20px rgba(139,92,246,.2); }
+.home-quick {
+  display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+}
+.quick-chip {
+  padding: 12px 24px; border-radius: 12px; font-size: 14px;
+  color: #d1d5db; background: rgba(17,17,24,.8); border: 1px solid rgba(255,255,255,.12);
+  cursor: pointer; backdrop-filter: blur(10px); transition: .15s; position: relative; overflow: hidden;
+}
+.quick-chip::before {
+  content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(139,92,246,.2), transparent);
+  transform: translateX(-100%); transition: transform .3s;
+}
+.quick-chip:hover::before { transform: translateX(100%); }
+.quick-chip:hover { color: #fff; border-color: rgba(139,92,246,.5); background: rgba(139,92,246,.15); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(124,58,237,.3); }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
 @keyframes pulse-dot { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: .6; } }
+
+.section-title {
+  display: flex; justify-content: space-between; align-items: center;
+  color: #9ca3af; font-size: 11px; font-weight: 600; letter-spacing: 1.5px;
+  margin-bottom: 16px; text-transform: uppercase;
+}
+.section-title .live { color: #34d399; animation: blink-live 2s ease-in-out infinite; }
+.section-title .off { color: #f87171; }
+@keyframes blink-live { 0%,100% { opacity: 1; } 50% { opacity: .6; } }
 
 /* tools + activity */
 .tool {
@@ -1072,10 +962,10 @@ button { outline: none; }
   .new-chat-btn, .sidebar-section, .sidebar-divider { display: none; }
   .nav-label, .profile { display: none; }
   .nav-item { justify-content: center; padding: 0; }
-  .right-panel { display: none; }
-  .dashboard-grid { grid-template-columns: 1fr 1fr; }
-  .avatar-panel { display: none; }
   .chat-bar, .quick-actions, .suggestions { left: 88px; right: 20px; }
+  .home-full { min-height: calc(100vh - 120px); }
+  .avatar-orb-large { width: 240px; height: 240px; }
+  .avatar-face-large { width: 160px; height: 160px; }
 }
 @media (max-width: 700px) {
   .topbar { height: 52px; padding: 0 14px; }
@@ -1084,10 +974,10 @@ button { outline: none; }
   .layout { grid-template-columns: 52px 1fr; }
   .layout.collapsed { grid-template-columns: 52px 1fr; }
   .main { padding: 20px 16px 200px; }
-  .dashboard-grid { grid-template-columns: 1fr; }
-  .stats-panel { padding: 18px; }
-  .status-ring { width: 120px; height: 120px; }
-  .status-number { font-size: 22px; }
+  .home-full { min-height: calc(100vh - 100px); gap: 24px; }
+  .avatar-orb-large { width: 180px; height: 180px; }
+  .avatar-face-large { width: 120px; height: 120px; }
+  .home-status { font-size: 12px; letter-spacing: 4px; }
   .chat-bar { left: 62px; right: 10px; bottom: 12px; }
   .quick-actions, .suggestions { left: 62px; right: 10px; bottom: 84px; }
   .quick-button, .suggestion { padding: 7px 11px; font-size: 11px; }
