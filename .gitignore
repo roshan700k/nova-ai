@@ -16,6 +16,7 @@ memory.json
 logs/
 client_secret*.json
 token*.json
+cookies.txt
 
 # OS / editor
 .DS_Store
