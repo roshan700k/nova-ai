@@ -8,9 +8,9 @@ from dotenv import load_dotenv
 for candidate in (".env", os.path.join("..", ".env")):
     load_dotenv(candidate)
 
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
-# Tried in order when the primary model errors (deprecated/overloaded)
-GEMINI_FALLBACKS = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"]
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite")
+# Tried in order when the primary model errors (deprecated/overloaded/quota)
+GEMINI_FALLBACKS = ["gemini-flash-lite-latest", "gemini-3.8-flash", "gemini-2.5-flash-lite"]
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 
@@ -76,7 +76,7 @@ class LLMBrain:
         payload = {
             "system_instruction": {"parts": [{"text": persona}]},
             "contents": contents,
-            "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1024},
+            "generationConfig": {"temperature": 0.7, "maxOutputTokens": 512},
         }
 
         last_exc = None
@@ -134,7 +134,7 @@ class LLMBrain:
     @staticmethod
     def _build_contents(message: str, history: list | None):
         contents = []
-        for turn in (history or [])[-8:]:
+        for turn in (history or [])[-4:]:
             contents.append({"role": "user", "parts": [{"text": turn["user"]}]})
             contents.append({"role": "model", "parts": [{"text": turn["astra"]}]})
         contents.append({"role": "user", "parts": [{"text": message}]})
@@ -143,7 +143,7 @@ class LLMBrain:
     @staticmethod
     def _build_prompt(message: str, history: list | None, tone_hint: str = ""):
         lines = [ASTRA_PERSONA + (("\n" + tone_hint) if tone_hint else ""), ""]
-        for turn in (history or [])[-8:]:
+        for turn in (history or [])[-4:]:
             lines.append(f"User: {turn['user']}")
             lines.append(f"ASTRA: {turn['astra']}")
         lines.append(f"User: {message}")
