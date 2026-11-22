@@ -45,6 +45,8 @@ export default function Dashboard() {
   const [activity, setActivity] = useState([]);
   const [memories, setMemories] = useState({});
   const [toasts, setToasts] = useState([]);
+  const [chatHistory, setChatHistory] = useState(["Plan my day", "Write code", "Research topic"]);
+  const [pinnedChats, setPinnedChats] = useState(["Daily brief", "Project ideas"]);
   const recognitionRef = useRef(null);
   const chatEndRef = useRef(null);
 
@@ -209,6 +211,33 @@ export default function Dashboard() {
     pushToast("Logged out");
   };
 
+  const newChat = () => {
+    setMessages([{ sender: "ASTRA", text: "Ready when you are." }]);
+    setActivePage("CHAT");
+  };
+
+  const selectChat = (title) => {
+    setMessages([{ sender: "ASTRA", text: `Resuming: ${title}` }]);
+    setActivePage("CHAT");
+  };
+
+  const pinChat = (title) => {
+    if (!pinnedChats.includes(title)) {
+      setPinnedChats([...pinnedChats, title]);
+      pushToast(`Pinned: ${title}`);
+    }
+  };
+
+  const unpinChat = (title) => {
+    setPinnedChats(pinnedChats.filter((t) => t !== title));
+    pushToast(`Unpinned: ${title}`);
+  };
+
+  const deleteChat = (title) => {
+    setChatHistory(chatHistory.filter((t) => t !== title));
+    pushToast(`Deleted: ${title}`);
+  };
+
   // ---------- derived ----------
   const fmtTime = (d) =>
     d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -315,17 +344,25 @@ export default function Dashboard() {
   }
 
   function renderChat() {
+    const isEmpty = messages.length <= 1;
     return (
       <section className="panel chat-page">
-        <div className="chat-history">
-          {messages.map((m, i) => (
-            <div className={`chat-msg ${m.sender === "You" ? "user" : "astra"}`} key={i}>
-              <span className="msg-sender">{m.sender === "You" ? "You" : "ASTRA"}</span>
-              <span className="msg-text">{m.text}</span>
-            </div>
-          ))}
-          <div ref={chatEndRef} />
-        </div>
+        {isEmpty ? (
+          <div className="chat-empty">
+            <div className="chat-empty-icon">✦</div>
+            <div className="chat-empty-title">Ready when you are.</div>
+          </div>
+        ) : (
+          <div className="chat-history">
+            {messages.map((m, i) => (
+              <div className={`chat-msg ${m.sender === "You" ? "user" : "astra"}`} key={i}>
+                <span className="msg-sender">{m.sender === "You" ? "You" : "ASTRA"}</span>
+                <span className="msg-text">{m.text}</span>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+        )}
       </section>
     );
   }
@@ -439,6 +476,40 @@ export default function Dashboard() {
       <div className="layout">
         {/* sidebar */}
         <aside className="sidebar">
+          <button className="new-chat-btn" onClick={newChat}>
+            <span className="new-chat-icon">＋</span> New chat
+          </button>
+
+          <div className="sidebar-section">
+            <div className="sidebar-header">
+              <span>Pinned</span>
+            </div>
+            {pinnedChats.length === 0 && <div className="sidebar-empty">No pinned chats</div>}
+            {pinnedChats.map((t) => (
+              <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
+                <span className="sidebar-item-icon">📌</span>
+                <span className="sidebar-item-text">{t}</span>
+                <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); unpinChat(t); }}>✕</button>
+              </div>
+            ))}
+          </div>
+
+          <div className="sidebar-section">
+            <div className="sidebar-header">
+              <span>Recents</span>
+            </div>
+            {chatHistory.length === 0 && <div className="sidebar-empty">No recent chats</div>}
+            {chatHistory.map((t) => (
+              <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
+                <span className="sidebar-item-icon">💬</span>
+                <span className="sidebar-item-text">{t}</span>
+                <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); deleteChat(t); }}>✕</button>
+              </div>
+            ))}
+          </div>
+
+          <div className="sidebar-divider" />
+
           {MENU.map(([icon, label]) => (
             <div
               key={label}
@@ -449,9 +520,11 @@ export default function Dashboard() {
               <span className="nav-label">{label}</span>
             </div>
           ))}
+
           <div className="profile">
             <div className="profile-avatar">{user ? user.name[0].toUpperCase() : "✦"}</div>
             <div className="profile-name">{user ? user.name : "Guest"}</div>
+            <div className="profile-plan">Free</div>
             <div className="profile-status">● {online ? "ASTRA READY" : "ASTRA OFFLINE"}</div>
           </div>
         </aside>
@@ -487,7 +560,7 @@ export default function Dashboard() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder={listening ? "Listening..." : "Talk to ASTRA..."}
+          placeholder={listening ? "Listening..." : "Ask ASTRA..."}
         />
         <button
           className={"voice-button " + (listening ? "listening" : speaking ? "speaking" : "")}
@@ -498,6 +571,14 @@ export default function Dashboard() {
         </button>
         <button className="send-button" onClick={handleSend} title="Send">➤</button>
       </div>
+
+      {!input && activePage === "CHAT" && (
+        <div className="suggestions">
+          <button className="suggestion" onClick={() => runQuickAction("Learn something interesting")}>Learn something</button>
+          <button className="suggestion" onClick={() => runQuickAction("Help me write and edit")}>Write or edit</button>
+          <button className="suggestion" onClick={() => runQuickAction("Search the web for me")}>Search the web</button>
+        </div>
+      )}
     </div>
   );
 
@@ -569,15 +650,45 @@ button { outline: none; }
 .user-chip:hover { background: rgba(139,92,246,.2); border-color: rgba(139,92,246,.5); }
 
 /* ---------- layout ---------- */
-.layout { display: grid; grid-template-columns: 220px minmax(0,1fr); min-height: calc(100vh - 60px); }
+.layout { display: grid; grid-template-columns: 260px minmax(0,1fr); min-height: calc(100vh - 60px); }
 .sidebar {
   border-right: 1px solid rgba(255,255,255,.06);
-  background: rgba(13,13,18,.6); padding: 18px 12px;
-  display: flex; flex-direction: column;
+  background: rgba(13,13,18,.6); padding: 16px 12px;
+  display: flex; flex-direction: column; overflow-y: auto;
 }
+.new-chat-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 10px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04); color: #e5e7eb; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: .15s; margin-bottom: 20px;
+}
+.new-chat-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(139,92,246,.4); }
+.new-chat-icon { font-size: 16px; }
+.sidebar-section { margin-bottom: 18px; }
+.sidebar-header {
+  display: flex; justify-content: space-between; align-items: center;
+  color: #6b7280; font-size: 11px; font-weight: 600; letter-spacing: 1px;
+  margin-bottom: 8px; text-transform: uppercase;
+}
+.sidebar-empty { color: #4b5563; font-size: 12px; padding: 6px 0; }
+.sidebar-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border-radius: 8px; color: #9ca3af; font-size: 13px; cursor: pointer;
+  transition: .15s; border: 1px solid transparent;
+}
+.sidebar-item:hover { background: rgba(255,255,255,.05); color: #e5e7eb; }
+.sidebar-item-icon { font-size: 13px; opacity: .7; }
+.sidebar-item-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-item-action {
+  opacity: 0; background: none; border: none; color: #6b7280; cursor: pointer;
+  font-size: 12px; padding: 2px 6px; border-radius: 4px; transition: .15s;
+}
+.sidebar-item:hover .sidebar-item-action { opacity: 1; }
+.sidebar-item-action:hover { background: rgba(255,255,255,.1); color: #ef4444; }
+.sidebar-divider { height: 1px; background: rgba(255,255,255,.06); margin: 12px 0; }
 .nav-item {
-  height: 40px; display: flex; align-items: center; gap: 12px;
-  padding: 0 14px; margin-bottom: 4px; border-radius: 10px;
+  height: 38px; display: flex; align-items: center; gap: 12px;
+  padding: 0 14px; margin-bottom: 2px; border-radius: 10px;
   color: #9ca3af; cursor: pointer; font-size: 13px; font-weight: 500;
   transition: .15s; border: 1px solid transparent;
 }
@@ -599,6 +710,7 @@ button { outline: none; }
   background: linear-gradient(135deg, #7c3aed, #ec4899);
 }
 .profile-name { font-weight: 600; font-size: 13px; }
+.profile-plan { color: #6b7280; font-size: 11px; margin-top: 2px; }
 .profile-status { color: #34d399; font-size: 11px; margin-top: 3px; display: flex; align-items: center; gap: 5px; }
 .profile-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #34d399; }
 
@@ -698,7 +810,7 @@ button { outline: none; }
 
 /* ---------- chat bar ---------- */
 .chat-bar {
-  position: fixed; left: 250px; right: 36px; bottom: 24px; z-index: 10;
+  position: fixed; left: 280px; right: 36px; bottom: 24px; z-index: 10;
   display: flex; gap: 8px; padding: 8px;
   border: 1px solid rgba(255,255,255,.1); border-radius: 18px;
   background: rgba(17,17,24,.85); backdrop-filter: blur(20px);
@@ -723,7 +835,7 @@ button { outline: none; }
 @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 
 .quick-actions {
-  position: fixed; left: 250px; right: 36px; bottom: 96px; z-index: 9;
+  position: fixed; left: 280px; right: 36px; bottom: 96px; z-index: 9;
   display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; max-width: 1100px;
 }
 .quick-button {
@@ -733,8 +845,25 @@ button { outline: none; }
 }
 .quick-button:hover { color: #fff; border-color: rgba(139,92,246,.5); background: rgba(139,92,246,.12); }
 
+.suggestions {
+  position: fixed; left: 290px; right: 36px; bottom: 96px; z-index: 9;
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 1100px;
+}
+.suggestion {
+  padding: 10px 18px; border-radius: 12px; font-size: 13px;
+  color: #9ca3af; background: rgba(17,17,24,.8); border: 1px solid rgba(255,255,255,.09);
+  cursor: pointer; backdrop-filter: blur(10px); transition: .15s;
+}
+.suggestion:hover { color: #fff; border-color: rgba(139,92,246,.5); background: rgba(139,92,246,.12); }
+
 /* ---------- chat page ---------- */
 .chat-page { min-height: 60vh; display: flex; flex-direction: column; }
+.chat-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 40vh; color: #6b7280;
+}
+.chat-empty-icon { font-size: 48px; color: #374151; margin-bottom: 16px; }
+.chat-empty-title { font-size: 20px; color: #d1d5db; font-weight: 500; }
 .chat-history { flex: 1; overflow-y: auto; padding: 16px 4px; max-height: calc(100vh - 300px); }
 .chat-msg { margin-bottom: 18px; font-size: 14px; line-height: 1.6; display: flex; gap: 12px; }
 .msg-sender { font-weight: 600; min-width: 56px; font-size: 12px; padding-top: 2px; }
@@ -777,12 +906,14 @@ button { outline: none; }
 /* ---------- responsive ---------- */
 @media (max-width: 1100px) {
   .layout { grid-template-columns: 64px minmax(0,1fr); }
+  .sidebar { padding: 12px 8px; }
+  .new-chat-btn, .sidebar-section, .sidebar-divider { display: none; }
   .nav-label, .profile { display: none; }
   .nav-item { justify-content: center; padding: 0; }
   .right-panel { display: none; }
   .dashboard-grid { grid-template-columns: 1fr 1fr; }
   .avatar-panel { display: none; }
-  .chat-bar, .quick-actions { left: 88px; right: 20px; }
+  .chat-bar, .quick-actions, .suggestions { left: 88px; right: 20px; }
 }
 @media (max-width: 700px) {
   .topbar { height: 52px; padding: 0 14px; }
@@ -795,7 +926,7 @@ button { outline: none; }
   .status-ring { width: 120px; height: 120px; }
   .status-number { font-size: 22px; }
   .chat-bar { left: 62px; right: 10px; bottom: 12px; }
-  .quick-actions { left: 62px; right: 10px; bottom: 84px; }
-  .quick-button { padding: 7px 11px; font-size: 11px; }
+  .quick-actions, .suggestions { left: 62px; right: 10px; bottom: 84px; }
+  .quick-button, .suggestion { padding: 7px 11px; font-size: 11px; }
 }
 `;
