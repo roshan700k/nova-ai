@@ -11,23 +11,23 @@ import {
 } from "../api/chatApi";
 
 const MENU = [
-  ["⌂", "HOME"],
+  ["◆", "HOME"],
   ["◉", "CHAT"],
-  ["◇", "MEMORY"],
-  ["✓", "TASKS"],
-  ["✦", "AI TOOLS"],
+  ["▣", "MEMORY"],
+  ["◇", "TASKS"],
+  ["◈", "AI TOOLS"],
   ["▧", "MEDIA"],
   ["□", "CALENDAR"],
   ["▤", "NOTES"],
-  ["⚙", "SETTINGS"],
+  ["◎", "SETTINGS"],
 ];
 
 const TOOLS = [
   ["✎", "AI Writer", "Write anything with AI"],
-  ["▣", "Image Generator", "Generate images"],
+  ["◇", "Image Generator", "Generate images"],
   ["⌘", "Code Assistant", "Write and debug code"],
-  ["♩", "Voice Assistant", "Talk with ASTRA"],
-  ["◈", "Research Helper", "Get information and insights"],
+  ["◈", "Voice Assistant", "Talk with ASTRA"],
+  ["◎", "Research Helper", "Get information and insights"],
 ];
 
 export default function Dashboard() {
@@ -305,12 +305,18 @@ export default function Dashboard() {
 
         {/* avatar */}
         <section className="panel avatar-panel">
-          <div className="avatar-orb"><div className="avatar-face">✦</div></div>
+          <div className="avatar-orb">
+            <div className="avatar-face">
+              <div className="avatar-ring-outer"></div>
+              <div className="avatar-ring-inner"></div>
+              <div className="avatar-dot"></div>
+            </div>
+          </div>
           <div className="avatar-status">
             {listening ? "LISTENING" : speaking ? "SPEAKING" : online ? "READY" : "OFFLINE"}
           </div>
           <div className={`voice-state ${listening || speaking ? "active" : ""}`}>
-            {listening ? "🎙 Listening..." : speaking ? "🔊 Speaking..." : "✨ Voice assistant ready"}
+            {listening ? "Listening..." : speaking ? "Speaking..." : "◆ Voice assistant ready"}
           </div>
         </section>
 
@@ -349,7 +355,7 @@ export default function Dashboard() {
       <section className="panel chat-page">
         {isEmpty ? (
           <div className="chat-empty">
-            <div className="chat-empty-icon">✦</div>
+            <div className="chat-empty-icon">◆</div>
             <div className="chat-empty-title">Ready when you are.</div>
           </div>
         ) : (
@@ -404,7 +410,7 @@ export default function Dashboard() {
         </section>
         <section className="panel page-panel">
           <div className="section-title"><span>SELF-CHECK</span></div>
-          {(status?.issues ?? []).length === 0 && <div className="empty-note">All systems nominal ✓</div>}
+          {(status?.issues ?? []).length === 0 && <div className="empty-note">All systems nominal</div>}
           {(status?.issues ?? []).map((i, k) => <div className="issue-box" key={k}>⚠ {i}</div>)}
         </section>
       </div>
@@ -424,7 +430,7 @@ export default function Dashboard() {
   }
 
   function iconFor(kind) {
-    return { chat: "◉", memory: "◇", build: "⌘", video: "▧" }[kind] || "✦";
+    return { chat: "◉", memory: "▣", build: "⌘", video: "▧" }[kind] || "◆";
   }
 
   function StatusBar({ label, value, pct }) {
@@ -445,14 +451,14 @@ export default function Dashboard() {
       {/* toasts */}
       <div className="toasts">
         {toasts.map((t) => (
-          <div className="toast" key={t.id}>✦ {t.text}</div>
+          <div className="toast" key={t.id}>◆ {t.text}</div>
         ))}
       </div>
 
       {/* topbar */}
       <header className="topbar">
         <div className="brand">
-          <div className="brand-logo">✦</div>
+          <div className="brand-logo">◆</div>
           <div>
             <div className="brand-title">ASTRA</div>
             <div className="brand-subtitle">PERSONAL AI ASSISTANT</div>
@@ -482,28 +488,28 @@ export default function Dashboard() {
 
           <div className="sidebar-section">
             <div className="sidebar-header">
-              <span>Pinned</span>
+              <span>◆ Pinned</span>
             </div>
             {pinnedChats.length === 0 && <div className="sidebar-empty">No pinned chats</div>}
             {pinnedChats.map((t) => (
               <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
-                <span className="sidebar-item-icon">📌</span>
+                <span className="sidebar-item-icon">◆</span>
                 <span className="sidebar-item-text">{t}</span>
-                <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); unpinChat(t); }}>✕</button>
+                <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); unpinChat(t); }}>×</button>
               </div>
             ))}
           </div>
 
           <div className="sidebar-section">
             <div className="sidebar-header">
-              <span>Recents</span>
+              <span>● Recents</span>
             </div>
             {chatHistory.length === 0 && <div className="sidebar-empty">No recent chats</div>}
             {chatHistory.map((t) => (
               <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
-                <span className="sidebar-item-icon">💬</span>
+                <span className="sidebar-item-icon">●</span>
                 <span className="sidebar-item-text">{t}</span>
-                <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); deleteChat(t); }}>✕</button>
+                <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); deleteChat(t); }}>×</button>
               </div>
             ))}
           </div>
@@ -547,8 +553,8 @@ export default function Dashboard() {
       {/* quick actions + chat bar */}
       {activePage !== "CHAT" && (
         <div className="quick-actions">
-          <button className="quick-button" onClick={() => runQuickAction("Tell me something interesting")}>✦ Ask ASTRA</button>
-          <button className="quick-button" onClick={() => runQuickAction("Give me today's tasks")}>✓ Tasks</button>
+          <button className="quick-button" onClick={() => runQuickAction("Tell me something interesting")}>◉ Ask ASTRA</button>
+          <button className="quick-button" onClick={() => runQuickAction("Give me today's tasks")}>◇ Tasks</button>
           <button className="quick-button" onClick={() => runQuickAction("Open my calendar")}>□ Calendar</button>
           <button className="quick-button" onClick={() => runQuickAction("Help me with coding")}>⌘ Coding</button>
         </div>
@@ -567,16 +573,16 @@ export default function Dashboard() {
           onClick={startVoice}
           title={listening ? "Stop" : "Voice"}
         >
-          {listening ? "⏹" : speaking ? "🔊" : "🎙"}
+          {listening ? "◼" : speaking ? "◉" : "◯"}
         </button>
-        <button className="send-button" onClick={handleSend} title="Send">➤</button>
+        <button className="send-button" onClick={handleSend} title="Send">▶</button>
       </div>
 
       {!input && activePage === "CHAT" && (
         <div className="suggestions">
-          <button className="suggestion" onClick={() => runQuickAction("Learn something interesting")}>Learn something</button>
-          <button className="suggestion" onClick={() => runQuickAction("Help me write and edit")}>Write or edit</button>
-          <button className="suggestion" onClick={() => runQuickAction("Search the web for me")}>Search the web</button>
+          <button className="suggestion" onClick={() => runQuickAction("Learn something interesting")}>◆ Learn something</button>
+          <button className="suggestion" onClick={() => runQuickAction("Help me write and edit")}>◇ Write or edit</button>
+          <button className="suggestion" onClick={() => runQuickAction("Search the web for me")}>◈ Search the web</button>
         </div>
       )}
     </div>
@@ -628,9 +634,14 @@ button { outline: none; }
 .brand { display: flex; align-items: center; gap: 11px; }
 .brand-logo {
   width: 34px; height: 34px; display: grid; place-items: center;
-  border-radius: 10px; font-size: 17px; color: #fff;
-  background: linear-gradient(135deg, #7c3aed, #a855f7);
-  box-shadow: 0 0 18px rgba(139,92,246,.5);
+  border-radius: 10px; font-size: 18px; color: #fff;
+  background: linear-gradient(135deg, #4c1d95, #7c3aed);
+  box-shadow: 0 0 18px rgba(124,58,237,.5);
+  position: relative;
+}
+.brand-logo::before {
+  content: ""; position: absolute; inset: -2px; border-radius: 12px;
+  border: 1px solid rgba(139,92,246,.3);
 }
 .brand-title { font-size: 15px; font-weight: 700; letter-spacing: 2.5px; }
 .brand-subtitle { font-size: 9px; color: #6b7280; letter-spacing: 2px; margin-top: 1px; }
@@ -763,15 +774,37 @@ button { outline: none; }
 .avatar-orb {
   width: 240px; height: 240px; border-radius: 50%; display: grid; place-items: center;
   position: relative;
-  background: radial-gradient(circle at 35% 30%, #c4b5fd 0%, #7c3aed 30%, #4c1d95 60%, #1e1b4b 100%);
-  box-shadow: 0 20px 60px rgba(124,58,237,.4), inset 0 -20px 40px rgba(0,0,0,.4), inset 0 10px 30px rgba(255,255,255,.15);
-  animation: breathe 4s ease-in-out infinite;
+  background: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #0a0a0f 100%);
+  box-shadow: 0 20px 60px rgba(124,58,237,.3), inset 0 0 60px rgba(124,58,237,.1);
 }
-.avatar-orb::after {
-  content: ""; position: absolute; inset: -14px; border-radius: 50%;
-  border: 1px solid rgba(139,92,246,.25); animation: ring 4s ease-in-out infinite;
+.avatar-face {
+  position: relative; width: 160px; height: 160px;
 }
-.avatar-face { font-size: 76px; filter: drop-shadow(0 4px 12px rgba(0,0,0,.4)); }
+.avatar-ring-outer {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid rgba(139,92,246,.4);
+  animation: spin 12s linear infinite;
+}
+.avatar-ring-outer::before, .avatar-ring-outer::after {
+  content: ""; position: absolute; top: -4px; left: 50%; width: 8px; height: 8px;
+  border-radius: 50%; background: #a78bfa; transform: translateX(-50%);
+}
+.avatar-ring-outer::after { top: auto; bottom: -4px; }
+.avatar-ring-inner {
+  position: absolute; inset: 25px; border-radius: 50%;
+  border: 1px solid rgba(139,92,246,.25);
+  animation: spin-reverse 8s linear infinite;
+}
+.avatar-ring-inner::before {
+  content: ""; position: absolute; top: -3px; left: 50%; width: 6px; height: 6px;
+  border-radius: 50%; background: #c4b5fd; transform: translateX(-50%);
+}
+.avatar-dot {
+  position: absolute; inset: 0; margin: auto; width: 12px; height: 12px;
+  border-radius: 50%; background: #a78bfa;
+  box-shadow: 0 0 20px #a78bfa, 0 0 40px rgba(139,92,246,.6);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
 .avatar-status {
   position: absolute; bottom: 110px; color: #a78bfa;
   letter-spacing: 4px; font-size: 11px; font-weight: 600;
@@ -782,8 +815,9 @@ button { outline: none; }
   color: #9ca3af; font-size: 12px; transition: .3s;
 }
 .voice-state.active { color: #e9d5ff; border-color: rgba(139,92,246,.5); box-shadow: 0 0 20px rgba(139,92,246,.2); }
-@keyframes breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.02); } }
-@keyframes ring { 0%,100% { transform: scale(1); opacity: .6; } 50% { transform: scale(1.08); opacity: 0; } }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+@keyframes pulse-dot { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: .6; } }
 
 /* tools + activity */
 .tool {
@@ -852,7 +886,7 @@ button { outline: none; }
 .suggestion {
   padding: 10px 18px; border-radius: 12px; font-size: 13px;
   color: #9ca3af; background: rgba(17,17,24,.8); border: 1px solid rgba(255,255,255,.09);
-  cursor: pointer; backdrop-filter: blur(10px); transition: .15s;
+  cursor: pointer; backdrop-filter: blur(10px); transition: .15s; display: flex; align-items: center; gap: 8px;
 }
 .suggestion:hover { color: #fff; border-color: rgba(139,92,246,.5); background: rgba(139,92,246,.12); }
 
