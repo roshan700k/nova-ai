@@ -12,15 +12,18 @@ class ReasoningEngine:
     def __init__(self, memory: Memory | None = None):
         self.memory = memory or Memory()
 
-    def learn(self, question: str, answer: str):
-        self.memory.remember(self._normalize(question), answer)
+    def learn(self, question: str, answer: str, ns: str | None = None):
+        self.memory.remember(self._normalize(question), answer, ns=ns)
 
-    def think(self, message: str):
+    def think(self, message: str, ns: str | None = None):
 
         text = message.lower().strip()
 
         # Exact match first, then normalized question form
-        saved = self.memory.recall(text) or self.memory.recall(self._normalize(text))
+        saved = (
+            self.memory.recall(text, ns=ns)
+            or self.memory.recall(self._normalize(text), ns=ns)
+        )
 
         if saved:
             return saved

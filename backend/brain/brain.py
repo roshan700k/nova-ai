@@ -49,12 +49,13 @@ class AstraBrain:
         self.loader = ModuleLoader()
         self.loader.load_modules()
 
-    def think(self, message: str):
-        reply = self._think(message)
+    def think(self, message: str, user_id: int | None = None):
+        ns = f"u{user_id}" if user_id else None
+        reply = self._think(message, ns)
         self.companion.record_exchange(message, self.emotion.detect(message))
         return reply
 
-    def _think(self, message: str):
+    def _think(self, message: str, ns: str | None = None):
 
         if not message or not message.strip():
             return "I'm here. What would you like to do?"
@@ -72,7 +73,7 @@ class AstraBrain:
 
             if "=" in content:
                 key, value = content.split("=", 1)
-                self.memory.remember(key.strip(), value.strip())
+                self.memory.remember(key.strip(), value.strip(), ns=ns)
                 return f"✅ I will remember {key.strip()}."
 
             return "Use: remember key=value"
@@ -87,11 +88,11 @@ class AstraBrain:
             candidates = {key, self.reasoning._normalize(key)}
 
             for candidate in candidates:
-                value = self.memory.recall(candidate)
+                value = self.memory.recall(candidate, ns=ns)
                 if value:
                     return f"{candidate} = {value}"
 
-            saved = self.reasoning.think(message)
+            saved = self.reasoning.think(message, ns=ns)
             if saved:
                 self.context.update(message, saved)
                 return saved
@@ -106,7 +107,7 @@ class AstraBrain:
 
             if "=" in content:
                 q, a = content.split("=", 1)
-                self.reasoning.learn(q.strip(), a.strip())
+                self.reasoning.learn(q.strip(), a.strip(), ns=ns)
                 return "✅ Learned."
 
             return "Use: teach: question = answer"
@@ -146,7 +147,7 @@ class AstraBrain:
 
         # ===== Reasoning =====
 
-        reply = self.reasoning.think(message)
+        reply = self.reasoning.think(message, ns=ns)
 
         if reply:
             self.context.update(message, reply)

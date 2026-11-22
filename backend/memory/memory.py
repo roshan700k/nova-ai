@@ -4,30 +4,38 @@ import os
 
 class Memory:
 
-    def __init__(self):
-        self.file = "memory.json"
+    def __init__(self, file="memory.json"):
+        self.file = file
 
         if os.path.exists(self.file):
-            with open(self.file, "r") as f:
+            with open(self.file, "r", encoding="utf-8") as f:
                 self.data = json.load(f)
         else:
             self.data = {}
 
-    def save(self):
-        with open(self.file, "w") as f:
-            json.dump(self.data, f, indent=4)
+    @staticmethod
+    def _key(key: str, ns: str | None) -> str:
+        return f"{ns}:{key}" if ns else key
 
-    def remember(self, key, value):
-        self.data[key] = value
+    def save(self):
+        with open(self.file, "w", encoding="utf-8") as f:
+            json.dump(self.data, f, indent=4, ensure_ascii=False)
+
+    def remember(self, key, value, ns: str | None = None):
+        self.data[self._key(key, ns)] = value
         self.save()
 
-    def recall(self, key):
-        return self.data.get(key)
+    def recall(self, key, ns: str | None = None):
+        return self.data.get(self._key(key, ns))
 
-    def forget(self, key):
-        if key in self.data:
-            del self.data[key]
+    def forget(self, key, ns: str | None = None):
+        k = self._key(key, ns)
+        if k in self.data:
+            del self.data[k]
             self.save()
 
-    def all(self):
-        return self.data
+    def all(self, ns: str | None = None):
+        if not ns:
+            return self.data
+        prefix = f"{ns}:"
+        return {k[len(prefix):]: v for k, v in self.data.items() if k.startswith(prefix)}

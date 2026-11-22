@@ -1,14 +1,19 @@
 import threading
 import time
 
+from fastapi import Request
+
 from pydantic import BaseModel, Field
 
 from database.database import create_table
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from brain.brain import AstraBrain
+from api.auth import router as auth_router, current_user
 
 app = FastAPI()
+
+app.include_router(auth_router)
 
 create_table()
 brain = AstraBrain()
@@ -37,12 +42,16 @@ def home():
 
 
 @app.post("/chat")
-def chat(data: ChatRequest):
+def chat(data: ChatRequest, request: Request):
 
-    reply = brain.think(data.message)
+    user = current_user(request)
+    user_id = user["id"] if user else None
+
+    reply = brain.think(data.message, user_id=user_id)
 
     return {
-        "reply": reply
+        "reply": reply,
+        "user": user["name"] if user else None,
     }
 
 
