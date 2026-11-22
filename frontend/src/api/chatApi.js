@@ -1,6 +1,16 @@
 import axios from "axios";
 
-const API = "http://localhost:8000";
+// API URL: use env var if set, else auto-detect local IP for phone access
+const API = import.meta.env.VITE_API_URL || (() => {
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      return "http://localhost:8000";
+    }
+    return `http://${host}:8000`;
+  }
+  return "http://localhost:8000";
+})();
 
 export async function sendMessage(message) {
     const response = await axios.post(`${API}/chat`, {
