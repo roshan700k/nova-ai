@@ -33,10 +33,10 @@ class ReasoningEngine:
             return "I'm doing great! How can I help you today?"
 
         if "who are you" in text:
-            return "I am ASTRA AI, created by Roshan."
+            return "I am NOVA AI, created by Roshan."
 
         if "your name" in text or "what is your name" in text:
-            return "My name is ASTRA."
+            return "My name is NOVA."
 
         return None
 

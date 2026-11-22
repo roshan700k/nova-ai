@@ -14,7 +14,7 @@ client = TestClient(app)
 def test_home():
     r = client.get("/")
     assert r.status_code == 200
-    assert "ASTRA" in r.json()["message"]
+    assert "NOVA" in r.json()["message"]
 
 
 def test_chat_greeting():

@@ -1,4 +1,4 @@
-APP_NAME = "ASTRA AI"
+APP_NAME = "NOVA AI"
 
 VERSION = "1.0.0"
 

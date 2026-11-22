@@ -26,14 +26,14 @@ const TOOLS = [
   ["✎", "AI Writer", "Write anything with AI"],
   ["◇", "Image Generator", "Generate images"],
   ["⌘", "Code Assistant", "Write and debug code"],
-  ["◈", "Voice Assistant", "Talk with ASTRA"],
+  ["◈", "Voice Assistant", "Talk with NOVA"],
   ["◎", "Research Helper", "Get information and insights"],
 ];
 
 export default function Dashboard() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
-    { sender: "ASTRA", text: "Hello. I am ASTRA — your personal AI. How can I help?" },
+    { sender: "NOVA", text: "Hello. I am NOVA — your personal AI. How can I help?" },
   ]);
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -89,7 +89,7 @@ export default function Dashboard() {
       try {
         const notes = await getNotifications();
         notes.forEach((text) => {
-          setMessages((p) => [...p, { sender: "ASTRA", text }]);
+          setMessages((p) => [...p, { sender: "NOVA", text }]);
           pushToast(text);
         });
       } catch { /* backend offline */ }
@@ -179,11 +179,11 @@ export default function Dashboard() {
     setInput("");
     try {
       const reply = await sendMessage(message);
-      setMessages((p) => [...p, { sender: "ASTRA", text: reply }]);
+      setMessages((p) => [...p, { sender: "NOVA", text: reply }]);
       speak(reply);
     } catch {
       const err = "I lost connection to my backend — is it running?";
-      setMessages((p) => [...p, { sender: "ASTRA", text: err }]);
+      setMessages((p) => [...p, { sender: "NOVA", text: err }]);
       speak(err);
     }
   };
@@ -212,12 +212,12 @@ export default function Dashboard() {
   };
 
   const newChat = () => {
-    setMessages([{ sender: "ASTRA", text: "Ready when you are." }]);
+    setMessages([{ sender: "NOVA", text: "Ready when you are." }]);
     setActivePage("CHAT");
   };
 
   const selectChat = (title) => {
-    setMessages([{ sender: "ASTRA", text: `Resuming: ${title}` }]);
+    setMessages([{ sender: "NOVA", text: `Resuming: ${title}` }]);
     setActivePage("CHAT");
   };
 
@@ -272,7 +272,7 @@ export default function Dashboard() {
     return {
       HOME: "Your AI assistant is online and ready.",
       CHAT: "Full conversation view.",
-      MEMORY: "Everything ASTRA remembers for you.",
+      MEMORY: "Everything NOVA remembers for you.",
       TASKS: "Reminders and to-dos — coming soon.",
       "AI TOOLS": "Quick tools — coming soon.",
       MEDIA: "Videos and media — coming soon.",
@@ -290,7 +290,7 @@ export default function Dashboard() {
           <div className="section-title"><span>SYSTEM STATUS</span><span className={online ? "live" : "off"}>{online ? "LIVE" : "OFFLINE"}</span></div>
           <div className="status-ring">
             <div className="status-ring-inner">
-              <div className="status-small">ASTRA</div>
+              <div className="status-small">NOVA</div>
               <div className="status-number">{online ? "100%" : "—"}</div>
               <div className="status-good">{online ? "SYSTEM GOOD" : "OFFLINE"}</div>
             </div>
@@ -362,7 +362,7 @@ export default function Dashboard() {
           <div className="chat-history">
             {messages.map((m, i) => (
               <div className={`chat-msg ${m.sender === "You" ? "user" : "astra"}`} key={i}>
-                <span className="msg-sender">{m.sender === "You" ? "You" : "ASTRA"}</span>
+                <span className="msg-sender">{m.sender === "You" ? "You" : "NOVA"}</span>
                 <span className="msg-text">{m.text}</span>
               </div>
             ))}
@@ -377,8 +377,8 @@ export default function Dashboard() {
     const entries = Object.entries(memories);
     return (
       <section className="panel page-panel">
-        <div className="section-title"><span>ASTRA'S MEMORY</span><span>{entries.length} items</span></div>
-        {entries.length === 0 && <div className="empty-note">Nothing remembered yet. Tell ASTRA: "remember wifi password is ..."</div>}
+        <div className="section-title"><span>NOVA'S MEMORY</span><span>{entries.length} items</span></div>
+        {entries.length === 0 && <div className="empty-note">Nothing remembered yet. Tell NOVA: "remember wifi password is ..."</div>}
         {entries.map(([k, v]) => (
           <div className="memory-item" key={k}>
             <span className="mem-key">{k}</span>
@@ -423,7 +423,7 @@ export default function Dashboard() {
         <div className="coming-soon">
           <div className="cs-icon">◌</div>
           <div className="cs-title">{pageTitle}</div>
-          <div className="cs-text">This module is on the roadmap. For now, just ask ASTRA — e.g. "remind me tomorrow at 9am" or "make a video about cricket".</div>
+          <div className="cs-text">This module is on the roadmap. For now, just ask NOVA — e.g. "remind me tomorrow at 9am" or "make a video about cricket".</div>
         </div>
       </section>
     );
@@ -460,7 +460,7 @@ export default function Dashboard() {
         <div className="brand">
           <div className="brand-logo">◆</div>
           <div>
-            <div className="brand-title">ASTRA</div>
+            <div className="brand-title">NOVA</div>
             <div className="brand-subtitle">PERSONAL AI ASSISTANT</div>
           </div>
         </div>
@@ -531,7 +531,7 @@ export default function Dashboard() {
             <div className="profile-avatar">{user ? user.name[0].toUpperCase() : "✦"}</div>
             <div className="profile-name">{user ? user.name : "Guest"}</div>
             <div className="profile-plan">Free</div>
-            <div className="profile-status">● {online ? "ASTRA READY" : "ASTRA OFFLINE"}</div>
+            <div className="profile-status">● {online ? "NOVA READY" : "NOVA OFFLINE"}</div>
           </div>
         </aside>
 
@@ -553,7 +553,7 @@ export default function Dashboard() {
       {/* quick actions + chat bar */}
       {activePage !== "CHAT" && (
         <div className="quick-actions">
-          <button className="quick-button" onClick={() => runQuickAction("Tell me something interesting")}>◉ Ask ASTRA</button>
+          <button className="quick-button" onClick={() => runQuickAction("Tell me something interesting")}>◉ Ask NOVA</button>
           <button className="quick-button" onClick={() => runQuickAction("Give me today's tasks")}>◇ Tasks</button>
           <button className="quick-button" onClick={() => runQuickAction("Open my calendar")}>□ Calendar</button>
           <button className="quick-button" onClick={() => runQuickAction("Help me with coding")}>⌘ Coding</button>
@@ -566,7 +566,7 @@ export default function Dashboard() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder={listening ? "Listening..." : "Ask ASTRA..."}
+          placeholder={listening ? "Listening..." : "Ask NOVA..."}
         />
         <button
           className={"voice-button " + (listening ? "listening" : speaking ? "speaking" : "")}

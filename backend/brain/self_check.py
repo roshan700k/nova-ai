@@ -2,7 +2,7 @@ import os
 
 
 class SelfCheck:
-    """ASTRA monitors her own health and reports issues in plain language."""
+    """NOVA monitors her own health and reports issues in plain language."""
 
     def __init__(self, llm=None, memory_file="memory.json"):
         self.llm = llm

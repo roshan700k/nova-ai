@@ -1,4 +1,4 @@
-"""ASTRA Creator Engine: idea -> script -> voiceover -> video -> metadata.
+"""NOVA Creator Engine: idea -> script -> voiceover -> video -> metadata.
 
 Pipeline:
   1. research/ideas  (LLM + optional YouTube/Data API trends)
@@ -187,7 +187,7 @@ class CreatorEngine:
         if video_path:
             aid = broker.request(
                 kind="upload_video",
-                description=f"ASTRA wants to upload '{title or topic}' to YouTube (private)",
+                description=f"NOVA wants to upload '{title or topic}' to YouTube (private)",
                 payload={"video": video_path, "title": title or topic,
                          "metadata": result["metadata"]},
             )

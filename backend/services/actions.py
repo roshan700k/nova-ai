@@ -1,4 +1,4 @@
-"""Permission gate for anything ASTRA does on the machine.
+"""Permission gate for anything NOVA does on the machine.
 
 Every action (open app, write file, run command, upload) must be
 approved by the user before it executes. Nothing runs silently.
@@ -94,7 +94,7 @@ class ActionBroker:
             meta = payload.get("metadata") or {}
             return youtube_manager.upload_video(
                 video_path=payload["video"],
-                title=payload.get("title", "ASTRA video"),
+                title=payload.get("title", "NOVA video"),
                 description=meta.get("description", ""),
                 tags=meta.get("tags", []),
                 privacy="private",  # never public without explicit second approval

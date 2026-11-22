@@ -14,8 +14,8 @@ GEMINI_FALLBACKS = ["gemini-flash-lite-latest", "gemini-3.8-flash", "gemini-2.5-
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 
-ASTRA_PERSONA = (
-    "You are ASTRA, Roshan's personal AI assistant. "
+NOVA_PERSONA = (
+    "You are NOVA, Roshan's personal AI assistant. "
     "You are friendly, concise and a little futuristic. "
     "You remember context from the conversation. "
     "Keep replies short unless a detailed answer is needed."
@@ -72,7 +72,7 @@ class LLMBrain:
 
     def _gemini(self, message: str, history: list | None, tone_hint: str = ""):
         contents = self._build_contents(message, history)
-        persona = ASTRA_PERSONA + (("\n" + tone_hint) if tone_hint else "")
+        persona = NOVA_PERSONA + (("\n" + tone_hint) if tone_hint else "")
         payload = {
             "system_instruction": {"parts": [{"text": persona}]},
             "contents": contents,
@@ -142,10 +142,10 @@ class LLMBrain:
 
     @staticmethod
     def _build_prompt(message: str, history: list | None, tone_hint: str = ""):
-        lines = [ASTRA_PERSONA + (("\n" + tone_hint) if tone_hint else ""), ""]
+        lines = [NOVA_PERSONA + (("\n" + tone_hint) if tone_hint else ""), ""]
         for turn in (history or [])[-4:]:
             lines.append(f"User: {turn['user']}")
-            lines.append(f"ASTRA: {turn['astra']}")
+            lines.append(f"NOVA: {turn['astra']}")
         lines.append(f"User: {message}")
-        lines.append("ASTRA:")
+        lines.append("NOVA:")
         return "\n".join(lines)

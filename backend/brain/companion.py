@@ -3,7 +3,7 @@ import time
 
 
 class Companion:
-    """ASTRA's emotional/proactive layer: mood tracking, check-ins,
+    """NOVA's emotional/proactive layer: mood tracking, check-ins,
     and self-issue reporting so she feels like a friend, not software."""
 
     def __init__(self, llm=None, memory_file="memory.json"):
@@ -56,7 +56,7 @@ class Companion:
 
         if self.llm and self.llm.provider:
             prompt = (
-                "You are ASTRA, the user's personal AI friend. "
+                "You are NOVA, the user's personal AI friend. "
                 "The user has been quiet for a while. "
                 "Send ONE short, warm, proactive message — ask how their day is going "
                 "or mention something useful. Max 2 sentences. No questions stacked."

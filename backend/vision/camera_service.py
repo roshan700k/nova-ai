@@ -1,4 +1,4 @@
-"""ASTRA vision service: face presence + emotion via webcam.
+"""NOVA vision service: face presence + emotion via webcam.
 
 Privacy rules:
 - frames processed locally only, never uploaded

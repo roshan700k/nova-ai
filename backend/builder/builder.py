@@ -1,4 +1,4 @@
-"""ASTRA Builder: turns 'build me X' into real files on disk.
+"""NOVA Builder: turns 'build me X' into real files on disk.
 
 Flow: LLM produces a file plan -> each write_file goes through the
 ActionBroker permission gate -> user approves -> files written.
@@ -31,7 +31,7 @@ class BuilderAgent:
             )
 
         prompt = (
-            "You are ASTRA's builder. The user asked: "
+            "You are NOVA's builder. The user asked: "
             f"\"{message}\"\n\n"
             "Respond with ONLY a JSON object, no markdown:\n"
             '{"name": "short-project-name", "files": [{"path": "relative/path", '
@@ -55,7 +55,7 @@ class BuilderAgent:
             path = os.path.join(project_dir, f["path"].lstrip("/").lstrip("\\"))
             aid = broker.request(
                 kind="write_file",
-                description=f"ASTRA wants to create {f['path']} in {project_dir}",
+                description=f"NOVA wants to create {f['path']} in {project_dir}",
                 payload={"path": path, "content": f["content"]},
             )
             queued += 1

@@ -15,7 +15,7 @@ class TTSRequest(BaseModel):
 
 @router.post("/tts")
 def tts(req: TTSRequest):
-    "returns mp3 audio of ASTRA speaking"""
+    "returns mp3 audio of NOVA speaking"""
     buf = io.BytesIO()
     gTTS(text=req.text, lang=req.lang).write_to_fp(buf)
     buf.seek(0)

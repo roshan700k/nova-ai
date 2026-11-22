@@ -41,7 +41,7 @@ class ChatRequest(BaseModel):
 @app.get("/")
 def home():
     return {
-        "message": "ASTRA AI Backend Running"
+        "message": "NOVA AI Backend Running"
     }
 
 
@@ -61,7 +61,7 @@ def chat(data: ChatRequest, request: Request):
 
 @app.get("/notifications")
 def notifications():
-    """Proactive messages ASTRA starts on her own (check-ins, self-issues)."""
+    """Proactive messages NOVA starts on her own (check-ins, self-issues)."""
     msgs = list(brain.outbox)
     brain.outbox.clear()
     return {"messages": msgs}
@@ -119,7 +119,7 @@ def _proactive_loop():
         time.sleep(60)
         try:
             for issue in brain.self_check.new_issues():
-                brain.outbox.append(f"[ASTRA-ALERT] {issue}")
+                brain.outbox.append(f"[NOVA-ALERT] {issue}")
             if brain.companion.checkin_due():
                 brain.outbox.append(brain.companion.checkin_message())
         except Exception:
