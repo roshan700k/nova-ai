@@ -8,6 +8,7 @@ import {
   getSystemStatus,
   getMemories,
 } from "../api/chatApi";
+import AdminPanel from "./AdminPanel";
 
 const MENU = [
   ["◆", "HOME"],
@@ -19,6 +20,7 @@ const MENU = [
   ["□", "CALENDAR"],
   ["▤", "NOTES"],
   ["◎", "SETTINGS"],
+  ["⬡", "ADMIN"],
 ];
 
 export default function Dashboard() {
@@ -243,6 +245,7 @@ export default function Dashboard() {
     CALENDAR: "Calendar",
     NOTES: "Notes",
     SETTINGS: "Settings",
+    ADMIN: "Admin Panel",
   }[activePage];
 
   // ================= page renderers =================
@@ -500,6 +503,7 @@ export default function Dashboard() {
           {activePage === "CHAT" && renderChat()}
           {activePage === "MEMORY" && renderMemory()}
           {activePage === "SETTINGS" && renderSettings()}
+          {activePage === "ADMIN" && <AdminPanel />}
           {["TASKS", "CALENDAR", "NOTES", "MEDIA", "AI TOOLS"].includes(activePage) && renderComingSoon()}
         </main>
       </div>
@@ -963,6 +967,48 @@ button { outline: none; }
 .cs-icon { font-size: 40px; color: #374151; margin-bottom: 14px; }
 .cs-title { font-size: 18px; color: #d1d5db; margin-bottom: 8px; font-weight: 600; }
 .cs-text { font-size: 13px; max-width: 400px; text-align: center; line-height: 1.6; }
+
+/* ---------- admin panel ---------- */
+.admin-panel { padding: 24px; max-width: 800px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card {
+  padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.03); text-align: center;
+}
+.stat-number { font-size: 32px; font-weight: 700; color: #a78bfa; }
+.stat-label { font-size: 12px; color: #6b7280; margin-top: 4px; }
+.admin-section { margin-bottom: 32px; }
+.feature-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.02); margin-bottom: 8px;
+}
+.feature-info { flex: 1; }
+.feature-name { font-weight: 600; color: #e5e7eb; font-size: 14px; }
+.feature-desc { color: #6b7280; font-size: 12px; margin-top: 4px; }
+.feature-toggle {
+  padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
+  font-size: 12px; font-weight: 600; transition: .15s;
+}
+.feature-toggle.enabled { background: rgba(52,211,153,.2); color: #34d399; border: 1px solid rgba(52,211,153,.4); }
+.feature-toggle.disabled { background: rgba(248,113,113,.2); color: #f87171; border: 1px solid rgba(248,113,113,.4); }
+.feature-toggle:hover { transform: scale(1.05); }
+.user-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.02); margin-bottom: 8px;
+}
+.user-info { flex: 1; }
+.user-name { font-weight: 600; color: #e5e7eb; font-size: 14px; }
+.user-email { color: #6b7280; font-size: 12px; margin-top: 4px; }
+.user-actions { display: flex; align-items: center; gap: 12px; }
+.role-select {
+  padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.05); color: #e5e7eb; font-size: 12px; cursor: pointer;
+}
+.user-status { font-size: 11px; font-weight: 600; }
+.user-status.active { color: #34d399; }
+.user-status.inactive { color: #f87171; }
 
 /* ---------- performance optimizations ---------- */
 @media (prefers-reduced-motion: reduce) {

@@ -12,12 +12,14 @@ from brain.brain import AstraBrain
 from api.auth import router as auth_router, current_user
 from api.voice import router as voice_router
 from api.actions import router as actions_router
+from api.admin import router as admin_router
 
 app = FastAPI()
 
 app.include_router(auth_router)
 app.include_router(voice_router)
 app.include_router(actions_router)
+app.include_router(admin_router)
 
 create_table()
 brain = AstraBrain()

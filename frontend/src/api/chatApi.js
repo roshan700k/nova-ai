@@ -59,3 +59,29 @@ export async function getMemories() {
     const response = await api.get(`/memory`);
     return response.data;
 }
+
+// Admin API
+export async function getAdminUsers() {
+    const response = await api.get(`/admin/users`);
+    return response.data.users;
+}
+
+export async function updateAdminUser(userId, data) {
+    const response = await api.put(`/admin/users/${userId}`, data);
+    return response.data;
+}
+
+export async function getAdminFeatures() {
+    const response = await api.get(`/admin/features`);
+    return response.data.features;
+}
+
+export async function updateAdminFeature(name, data) {
+    const response = await api.put(`/admin/features/${name}`, data);
+    return response.data;
+}
+
+export async function getAdminStats() {
+    const response = await api.get(`/admin/stats`);
+    return response.data;
+}

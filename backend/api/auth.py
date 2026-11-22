@@ -60,6 +60,15 @@ def current_user(request: Request):
     return get_user_by_id(uid)
 
 
+def require_admin(request: Request):
+    """Dependency: requires admin role."""
+    user = current_user(request)
+    if not user or user.get("role") != "admin":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
 @router.get("/google")
 def google_login():
     if not GOOGLE_CLIENT_ID:
