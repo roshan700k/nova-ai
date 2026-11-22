@@ -38,6 +38,7 @@ export default function Dashboard() {
   const [chatHistory, setChatHistory] = useState(["Plan my day", "Write code", "Research topic"]);
   const [pinnedChats, setPinnedChats] = useState(["Daily brief", "Project ideas"]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [loading, setLoading] = useState(false);
   const recognitionRef = useRef(null);
   const chatEndRef = useRef(null);
 
@@ -162,9 +163,10 @@ export default function Dashboard() {
   // ---------- chat ----------
   const handleSend = async (textOverride = null) => {
     const message = (textOverride ?? input).trim();
-    if (!message) return;
+    if (!message || loading) return;
     setMessages((p) => [...p, { sender: "You", text: message }]);
     setInput("");
+    setLoading(true);
     try {
       const reply = await sendMessage(message);
       setMessages((p) => [...p, { sender: "NOVA", text: reply }]);
@@ -173,6 +175,8 @@ export default function Dashboard() {
       const err = "I lost connection to my backend — is it running?";
       setMessages((p) => [...p, { sender: "NOVA", text: err }]);
       speak(err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -303,11 +307,17 @@ export default function Dashboard() {
         ) : (
           <div className="chat-history">
             {messages.map((m, i) => (
-              <div className={`chat-msg ${m.sender === "You" ? "user" : "astra"}`} key={i}>
+              <div className={`chat-msg ${m.sender === "You" ? "user" : "nova"}`} key={i}>
                 <span className="msg-sender">{m.sender === "You" ? "You" : "NOVA"}</span>
                 <span className="msg-text">{m.text}</span>
               </div>
             ))}
+            {loading && (
+              <div className="chat-msg nova">
+                <span className="msg-sender">NOVA</span>
+                <span className="msg-text"><div className="loading-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} /></span>
+              </div>
+            )}
             <div ref={chatEndRef} />
           </div>
         )}
@@ -910,7 +920,7 @@ button { outline: none; }
 .chat-msg { margin-bottom: 18px; font-size: 14px; line-height: 1.6; display: flex; gap: 12px; animation: fadeup .3s ease-out; }
 @keyframes fadeup { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .msg-sender { font-weight: 600; min-width: 56px; font-size: 12px; padding-top: 2px; }
-.chat-msg.astra .msg-sender { color: #a78bfa; }
+.chat-msg.nova .msg-sender { color: #a78bfa; }
 .chat-msg.user .msg-sender { color: #38bdf8; }
 .msg-text { flex: 1; color: #d1d5db; white-space: pre-wrap; }
 
@@ -954,18 +964,59 @@ button { outline: none; }
 .cs-title { font-size: 18px; color: #d1d5db; margin-bottom: 8px; font-weight: 600; }
 .cs-text { font-size: 13px; max-width: 400px; text-align: center; line-height: 1.6; }
 
-/* ---------- responsive ---------- */
+/* ---------- performance optimizations ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Loading state */
+.loading-spinner {
+  width: 40px; height: 40px; border: 3px solid rgba(139,92,246,.2);
+  border-top-color: #a78bfa; border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Error boundary fallback */
+.error-fallback {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; color: #9ca3af; padding: 20px; text-align: center;
+}
+.error-fallback h2 { color: #f87171; margin-bottom: 10px; }
+.error-fallback button {
+  margin-top: 20px; padding: 10px 20px; border-radius: 8px;
+  background: rgba(139,92,246,.2); border: 1px solid rgba(139,92,246,.5);
+  color: #ede9fe; cursor: pointer;
+}
+
+/* ---------- touch & mobile optimizations ---------- */
+@media (hover: none) and (pointer: coarse) {
+  .tool:hover::before, .quick-button:hover::before, .suggestion:hover::before, .btn:hover::before, .new-chat-btn:hover::before {
+    display: none;
+  }
+  .panel:hover, .avatar-orb:hover, .avatar-orb-large:hover, .brand-logo:hover, .profile:hover {
+    transform: none;
+  }
+  .sidebar-item:hover { transform: none; }
+  .nav-item:hover { background: rgba(255,255,255,.05); }
+}
+
 @media (max-width: 1100px) {
   .layout { grid-template-columns: 64px minmax(0,1fr); }
   .layout.collapsed { grid-template-columns: 64px minmax(0,1fr); }
   .sidebar { padding: 12px 8px; }
   .new-chat-btn, .sidebar-section, .sidebar-divider { display: none; }
   .nav-label, .profile { display: none; }
-  .nav-item { justify-content: center; padding: 0; }
+  .nav-item { justify-content: center; padding: 0; height: 44px; }
   .chat-bar, .quick-actions, .suggestions { left: 88px; right: 20px; }
   .home-full { min-height: calc(100vh - 120px); }
   .avatar-orb-large { width: 240px; height: 240px; }
   .avatar-face-large { width: 160px; height: 160px; }
+  .quick-chip { padding: 14px 28px; font-size: 15px; }
 }
 @media (max-width: 700px) {
   .topbar { height: 52px; padding: 0 14px; }
@@ -978,8 +1029,18 @@ button { outline: none; }
   .avatar-orb-large { width: 180px; height: 180px; }
   .avatar-face-large { width: 120px; height: 120px; }
   .home-status { font-size: 12px; letter-spacing: 4px; }
-  .chat-bar { left: 62px; right: 10px; bottom: 12px; }
+  .chat-bar { left: 62px; right: 10px; bottom: 12px; padding: 6px; }
+  .chat-input { padding: 12px 12px; font-size: 16px; }
+  .voice-button, .send-button { width: 44px; height: 44px; font-size: 16px; }
   .quick-actions, .suggestions { left: 62px; right: 10px; bottom: 84px; }
-  .quick-button, .suggestion { padding: 7px 11px; font-size: 11px; }
+  .quick-button, .suggestion { padding: 10px 14px; font-size: 13px; }
+  .quick-chip { padding: 12px 20px; font-size: 14px; }
+}
+@media (max-width: 400px) {
+  .avatar-orb-large { width: 140px; height: 140px; }
+  .avatar-face-large { width: 90px; height: 90px; }
+  .home-status { font-size: 10px; letter-spacing: 3px; }
+  .chat-bar { left: 52px; right: 8px; bottom: 8px; }
+  .quick-actions, .suggestions { left: 52px; right: 8px; bottom: 76px; }
 }
 `;

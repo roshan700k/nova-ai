@@ -12,8 +12,14 @@ const API = import.meta.env.VITE_API_URL || (() => {
   return "http://localhost:8000";
 })();
 
+// Axios instance with timeout
+const api = axios.create({
+  baseURL: API,
+  timeout: 10000,
+});
+
 export async function sendMessage(message) {
-    const response = await axios.post(`${API}/chat`, {
+    const response = await api.post(`/chat`, {
         message: message,
     });
 
@@ -21,35 +27,35 @@ export async function sendMessage(message) {
 }
 
 export async function getNotifications() {
-    const response = await axios.get(`${API}/notifications`);
+    const response = await api.get(`/notifications`);
     return response.data.messages || [];
 }
 
 export async function devLogin(name) {
-    const response = await axios.post(`${API}/auth/dev-login`, { name });
+    const response = await api.post(`/auth/dev-login`, { name });
     return response.data;
 }
 
 export async function getMe() {
-    const response = await axios.get(`${API}/auth/me`);
+    const response = await api.get(`/auth/me`);
     return response.data.user;
 }
 
 export async function logout() {
-    await axios.post(`${API}/auth/logout`);
+    await api.post(`/auth/logout`);
 }
 
 export async function getSystemStatus() {
-    const response = await axios.get(`${API}/system-status`);
+    const response = await api.get(`/system-status`);
     return response.data;
 }
 
 export async function getActivity() {
-    const response = await axios.get(`${API}/activity`);
+    const response = await api.get(`/activity`);
     return response.data.activity || [];
 }
 
 export async function getMemories() {
-    const response = await axios.get(`${API}/memory`);
+    const response = await api.get(`/memory`);
     return response.data;
 }
