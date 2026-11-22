@@ -47,6 +47,7 @@ export default function Dashboard() {
   const [toasts, setToasts] = useState([]);
   const [chatHistory, setChatHistory] = useState(["Plan my day", "Write code", "Research topic"]);
   const [pinnedChats, setPinnedChats] = useState(["Daily brief", "Project ideas"]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const recognitionRef = useRef(null);
   const chatEndRef = useRef(null);
 
@@ -451,6 +452,9 @@ export default function Dashboard() {
       {/* topbar */}
       <header className="topbar">
         <div className="brand">
+          <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
+            {sidebarCollapsed ? "→" : "←"}
+          </button>
           <div className="brand-logo">◆</div>
           <div>
             <div className="brand-title">NOVA</div>
@@ -472,59 +476,69 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className="layout">
+      <div className={`layout ${sidebarCollapsed ? "collapsed" : ""}`}>
         {/* sidebar */}
-        <aside className="sidebar">
+        <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
           <button className="new-chat-btn" onClick={newChat}>
-            <span className="new-chat-icon">＋</span> New chat
+            <span className="new-chat-icon">＋</span>
+            {!sidebarCollapsed && <span>New chat</span>}
           </button>
 
-          <div className="sidebar-section">
-            <div className="sidebar-header">
-              <span>◆ Pinned</span>
-            </div>
-            {pinnedChats.length === 0 && <div className="sidebar-empty">No pinned chats</div>}
-            {pinnedChats.map((t) => (
-              <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
-                <span className="sidebar-item-icon">◆</span>
-                <span className="sidebar-item-text">{t}</span>
-                <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); unpinChat(t); }}>×</button>
+          {!sidebarCollapsed && (
+            <>
+              <div className="sidebar-section">
+                <div className="sidebar-header">
+                  <span>◆ Pinned</span>
+                </div>
+                {pinnedChats.length === 0 && <div className="sidebar-empty">No pinned chats</div>}
+                {pinnedChats.map((t) => (
+                  <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
+                    <span className="sidebar-item-icon">◆</span>
+                    <span className="sidebar-item-text">{t}</span>
+                    <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); unpinChat(t); }}>×</button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          <div className="sidebar-section">
-            <div className="sidebar-header">
-              <span>● Recents</span>
-            </div>
-            {chatHistory.length === 0 && <div className="sidebar-empty">No recent chats</div>}
-            {chatHistory.map((t) => (
-              <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
-                <span className="sidebar-item-icon">●</span>
-                <span className="sidebar-item-text">{t}</span>
-                <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); deleteChat(t); }}>×</button>
+              <div className="sidebar-section">
+                <div className="sidebar-header">
+                  <span>● Recents</span>
+                </div>
+                {chatHistory.length === 0 && <div className="sidebar-empty">No recent chats</div>}
+                {chatHistory.map((t) => (
+                  <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
+                    <span className="sidebar-item-icon">●</span>
+                    <span className="sidebar-item-text">{t}</span>
+                    <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); deleteChat(t); }}>×</button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          <div className="sidebar-divider" />
+              <div className="sidebar-divider" />
+            </>
+          )}
 
           {MENU.map(([icon, label]) => (
             <div
               key={label}
               className={"nav-item " + (activePage === label ? "active" : "")}
               onClick={() => setActivePage(label)}
+              title={label}
             >
               <span className="nav-icon">{icon}</span>
-              <span className="nav-label">{label}</span>
+              {!sidebarCollapsed && <span className="nav-label">{label}</span>}
             </div>
           ))}
 
           <div className="profile">
-            <div className="profile-avatar">{user ? user.name[0].toUpperCase() : "✦"}</div>
-            <div className="profile-name">{user ? user.name : "Guest"}</div>
-            <div className="profile-plan">Free</div>
-            <div className="profile-status">● {online ? "NOVA READY" : "NOVA OFFLINE"}</div>
+            <div className="profile-avatar">{user ? user.name[0].toUpperCase() : "◆"}</div>
+            {!sidebarCollapsed && (
+              <>
+                <div className="profile-name">{user ? user.name : "Guest"}</div>
+                <div className="profile-plan">Free</div>
+                <div className="profile-status">● {online ? "NOVA READY" : "NOVA OFFLINE"}</div>
+              </>
+            )}
           </div>
         </aside>
 
@@ -677,13 +691,28 @@ button { outline: none; }
 .user-chip:hover { background: rgba(139,92,246,.2); border-color: rgba(139,92,246,.5); }
 
 /* ---------- layout ---------- */
-.layout { display: grid; grid-template-columns: 260px minmax(0,1fr); min-height: calc(100vh - 60px); }
+.layout { display: grid; grid-template-columns: 260px minmax(0,1fr); min-height: calc(100vh - 60px); transition: grid-template-columns .3s ease; }
+.layout.collapsed { grid-template-columns: 64px minmax(0,1fr); }
 .sidebar {
   border-right: 1px solid rgba(255,255,255,.06);
   background: rgba(13,13,18,.6); padding: 16px 12px;
   display: flex; flex-direction: column; overflow-y: auto;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px); transition: width .3s ease;
 }
+.sidebar.collapsed { padding: 16px 8px; }
+.sidebar-toggle {
+  width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.04); color: #9ca3af; cursor: pointer; font-size: 14px;
+  display: grid; place-items: center; transition: .15s; margin-right: 8px;
+}
+.sidebar-toggle:hover { background: rgba(255,255,255,.08); color: #fff; }
+.sidebar.collapsed .new-chat-btn { justify-content: center; padding: 10px; }
+.sidebar.collapsed .new-chat-btn span:not(.new-chat-icon) { display: none; }
+.sidebar.collapsed .sidebar-section, .sidebar.collapsed .sidebar-divider { display: none; }
+.sidebar.collapsed .nav-item { justify-content: center; padding: 0; }
+.sidebar.collapsed .nav-label { display: none; }
+.sidebar.collapsed .profile { padding: 10px; text-align: center; }
+.sidebar.collapsed .profile-name, .sidebar.collapsed .profile-plan, .sidebar.collapsed .profile-status { display: none; }
 .new-chat-btn {
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 10px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12);
@@ -917,8 +946,9 @@ button { outline: none; }
   border: 1px solid rgba(255,255,255,.1); border-radius: 18px;
   background: rgba(17,17,24,.85); backdrop-filter: blur(20px);
   box-shadow: 0 12px 40px rgba(0,0,0,.5), 0 0 30px rgba(139,92,246,.08);
-  max-width: 1100px; transition: transform .2s, box-shadow .2s;
+  max-width: 1100px; transition: transform .2s, box-shadow .2s, left .3s ease;
 }
+.layout.collapsed .chat-bar { left: 84px; }
 .chat-bar:focus-within {
   transform: translateY(-2px);
   box-shadow: 0 16px 50px rgba(0,0,0,.6), 0 0 40px rgba(139,92,246,.15);
@@ -944,7 +974,9 @@ button { outline: none; }
 .quick-actions {
   position: fixed; left: 280px; right: 36px; bottom: 96px; z-index: 9;
   display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; max-width: 1100px;
+  transition: left .3s ease;
 }
+.layout.collapsed .quick-actions { left: 84px; }
 .quick-button {
   padding: 8px 14px; border-radius: 999px; font-size: 12px;
   color: #9ca3af; background: rgba(17,17,24,.8); border: 1px solid rgba(255,255,255,.09);
@@ -960,7 +992,9 @@ button { outline: none; }
 .suggestions {
   position: fixed; left: 290px; right: 36px; bottom: 96px; z-index: 9;
   display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 1100px;
+  transition: left .3s ease;
 }
+.layout.collapsed .suggestions { left: 94px; }
 .suggestion {
   padding: 10px 18px; border-radius: 12px; font-size: 13px;
   color: #9ca3af; background: rgba(17,17,24,.8); border: 1px solid rgba(255,255,255,.09);
@@ -1033,6 +1067,7 @@ button { outline: none; }
 /* ---------- responsive ---------- */
 @media (max-width: 1100px) {
   .layout { grid-template-columns: 64px minmax(0,1fr); }
+  .layout.collapsed { grid-template-columns: 64px minmax(0,1fr); }
   .sidebar { padding: 12px 8px; }
   .new-chat-btn, .sidebar-section, .sidebar-divider { display: none; }
   .nav-label, .profile { display: none; }
@@ -1047,6 +1082,7 @@ button { outline: none; }
   .brand-subtitle, .top-center { display: none; }
   .clock { font-size: 12px; }
   .layout { grid-template-columns: 52px 1fr; }
+  .layout.collapsed { grid-template-columns: 52px 1fr; }
   .main { padding: 20px 16px 200px; }
   .dashboard-grid { grid-template-columns: 1fr; }
   .stats-panel { padding: 18px; }
