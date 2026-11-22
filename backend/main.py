@@ -1,3 +1,5 @@
+from pydantic import BaseModel, Field
+
 from database.database import create_table
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,18 +21,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+class ChatRequest(BaseModel):
+    message: str = Field(default="", max_length=4000)
+
+
 @app.get("/")
 def home():
     return {
         "message": "ASTRA AI Backend Running"
     }
 
+
 @app.post("/chat")
-def chat(data: dict):
+def chat(data: ChatRequest):
 
-    message = data.get("message", "")
-
-    reply = brain.think(message)
+    reply = brain.think(data.message)
 
     return {
         "reply": reply

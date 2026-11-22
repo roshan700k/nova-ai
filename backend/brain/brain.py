@@ -27,7 +27,7 @@ class AstraBrain:
         self.memory = Memory()
         self.personality = Personality()
         self.emotion = EmotionDetector()
-        self.reasoning = ReasoningEngine()
+        self.reasoning = ReasoningEngine(self.memory)
         self.response = ResponseEngine()
         self.context = ContextManager()
         self.youtube = YouTubeModule()
@@ -43,6 +43,9 @@ class AstraBrain:
         self.loader.load_modules()
 
     def think(self, message: str):
+
+        if not message or not message.strip():
+            return "I'm here. What would you like to do?"
 
         text = message.lower().strip()
         computer_reply = self.computer.think(message)
@@ -66,13 +69,20 @@ class AstraBrain:
         if youtube_reply:
          return youtube_reply
 
-        if text.startswith("what is "):
-            key = text.replace("what is ", "").strip()
+        if text.startswith("what is ") or text.startswith("what's "):
+            key = text.replace("what is ", "", 1).replace("what's ", "", 1).strip()
 
-            value = self.memory.recall(key)
+            candidates = {key, self.reasoning._normalize(key)}
 
-            if value:
-                return f"{key} = {value}"
+            for candidate in candidates:
+                value = self.memory.recall(candidate)
+                if value:
+                    return f"{candidate} = {value}"
+
+            saved = self.reasoning.think(message)
+            if saved:
+                self.context.update(message, saved)
+                return saved
 
             return "I don't remember that."
 
@@ -103,11 +113,12 @@ class AstraBrain:
         else:
             module = self.loader.get("chat_module")
 
-        reply = module.think(message)
+        if module is not None:
+            reply = module.think(message)
 
-        if reply:
-            self.context.update(message, reply)
-            return reply
+            if reply:
+                self.context.update(message, reply)
+                return reply
 
         # ===== Reasoning =====
 
