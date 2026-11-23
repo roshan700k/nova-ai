@@ -23,6 +23,7 @@ import {
   deleteTask,
 } from "../api/chatApi";
 import AdminPanel from "./AdminPanel";
+import HoloAvatar from "./HoloAvatar";
 
 // ---------- lightweight markdown renderer ----------
 function inlineFormat(s, keyPrefix) {
@@ -113,7 +114,10 @@ export default function Dashboard() {
   const [monitor, setMonitor] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState("");
+  const [wakeMode, setWakeMode] = useState(false);
   const abortRef = useRef(null);
+  const wakeRef = useRef(null);
+  const handleSendRef = useRef(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
@@ -167,7 +171,9 @@ export default function Dashboard() {
     }
   }, [activePage]);
 
-  const refreshTasks = () => getTasks().then(setTasks).catch(() => {});
+  function refreshTasks() {
+    getTasks().then(setTasks).catch(() => {});
+  }
 
   const submitTask = async () => {
     const title = newTask.trim();
@@ -279,6 +285,7 @@ export default function Dashboard() {
 
   useEffect(() => () => {
     recognitionRef.current?.stop?.();
+    wakeRef.current?.stop?.();
     window.speechSynthesis?.cancel();
   }, []);
 
@@ -325,6 +332,56 @@ export default function Dashboard() {
   };
 
   const stopGenerating = () => abortRef.current?.abort();
+
+  // keep latest handleSend for wake-word callback
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  });
+
+  // ---------- wake word: say "NOVA ..." ----------
+  const toggleWake = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      pushToast("Wake word needs Chrome or Edge");
+      return;
+    }
+    if (wakeMode) {
+      wakeRef.current?.stop();
+      wakeRef.current = null;
+      setWakeMode(false);
+      pushToast("Wake word OFF");
+      return;
+    }
+    const rec = new SR();
+    rec.lang = "en-IN";
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onresult = (e) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript.toLowerCase().trim();
+        const m = t.match(/(?:hey\s+|ok\s+|okay\s+)?nova[,\s]+(.+)/);
+        if (m && m[1].trim().length > 1) {
+          const cmd = m[1].trim();
+          pushToast(`◆ ${cmd}`);
+          handleSendRef.current?.(cmd);
+          break;
+        }
+        if (/^(hey\s+|ok\s+|okay\s+)?nova[.!?]?$/.test(t)) {
+          pushToast("Yes? I'm listening.");
+        }
+      }
+    };
+    rec.onend = () => {
+      if (wakeRef.current === rec) {
+        try { rec.start(); } catch { /* already started */ }
+      }
+    };
+    rec.onerror = () => {};
+    wakeRef.current = rec;
+    try { rec.start(); } catch { /* mic busy */ }
+    setWakeMode(true);
+    pushToast("Wake word ON — say 'NOVA ...'");
+  };
 
   const runQuickAction = (text) => {
     setInput(text);
@@ -432,13 +489,10 @@ export default function Dashboard() {
     return (
       <div className="home-full">
         <div className="home-hero">
-          <div className="avatar-orb-large">
-            <div className="avatar-face-large">
-              <div className="avatar-ring-outer"></div>
-              <div className="avatar-ring-inner"></div>
-              <div className="avatar-dot"></div>
-            </div>
-          </div>
+          <HoloAvatar
+            size={typeof window !== "undefined" ? Math.min(300, Math.max(180, window.innerWidth * 0.55)) : 280}
+            active={listening || speaking}
+          />
           <div className="home-status">
             {listening ? "LISTENING" : speaking ? "SPEAKING" : online ? "READY" : "OFFLINE"}
           </div>
@@ -938,6 +992,11 @@ export default function Dashboard() {
                 </div>
                 <div className="profile-menu-item" onClick={() => { runQuickAction("Search the web for me"); setChatMenuOpen(false); }}>
                   <span className="nav-icon">◉</span><span>Search the web</span>
+                </div>
+                <div className="profile-menu-divider" />
+                <div className={"profile-menu-item " + (wakeMode ? "active" : "")} onClick={() => { toggleWake(); setChatMenuOpen(false); }}>
+                  <span className="nav-icon">{wakeMode ? "◉" : "◯"}</span>
+                  <span>Wake word: {wakeMode ? "ON" : "OFF"}</span>
                 </div>
               </div>
             </>
