@@ -30,6 +30,7 @@ from api.admin import router as admin_router
 from api.monitor import router as monitor_router
 from api.tasks import router as tasks_router
 from api.research import router as research_router
+from api.automation import router as automation_router
 
 app = FastAPI()
 
@@ -40,6 +41,7 @@ app.include_router(admin_router)
 app.include_router(monitor_router)
 app.include_router(tasks_router)
 app.include_router(research_router)
+app.include_router(automation_router)
 
 create_table()
 brain = AstraBrain()
@@ -107,6 +109,22 @@ def chat(data: ChatRequest, request: Request):
                 for s in res["sources"][:4]:
                     lines.append(f"- [{s['title']}]({s['url']})")
             reply = "\n".join(lines)
+            add_message(conv_id, "nova", reply)
+            return {
+                "reply": reply,
+                "user": user["name"] if user else None,
+                "conversation_id": conv_id,
+            }
+
+    # Automation command: "automate X" / "step by step X" / "plan and do X"
+    for prefix in ("automate ", "automation ", "step by step ", "plan and do ", "run plan "):
+        if low.startswith(prefix):
+            from api.automation import run_automation, format_report
+            goal = data.message[len(prefix):].strip() or data.message
+            add_message(conv_id, "user", data.message)
+            set_conversation_title(conv_id, data.message[:40])
+            res = run_automation(goal, user_id, brain.llm)
+            reply = format_report(res)
             add_message(conv_id, "nova", reply)
             return {
                 "reply": reply,
