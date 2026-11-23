@@ -16,6 +16,9 @@ from database.database import (
     set_conversation_title,
     set_conversation_pinned,
     delete_conversation,
+    delete_all_conversations,
+    get_user_settings,
+    set_user_settings,
 )
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -138,6 +141,46 @@ def remove_chat(conv_id: int, request: Request):
     return {"ok": True}
 
 
+@app.delete("/chats")
+def clear_all_chats(request: Request):
+    user = current_user(request)
+    user_id = user["id"] if user else None
+    delete_all_conversations(user_id)
+    return {"ok": True}
+
+
+# ---------- user settings & data ----------
+
+@app.get("/settings")
+def get_settings(request: Request):
+    user = current_user(request)
+    if not user:
+        return {"settings": {}}
+    return {"settings": get_user_settings(user["id"])}
+
+
+class SettingsRequest(BaseModel):
+    settings: dict = Field(default_factory=dict)
+
+
+@app.put("/settings")
+def update_settings(data: SettingsRequest, request: Request):
+    user = current_user(request)
+    if not user:
+        return {"error": "login required"}
+    set_user_settings(user["id"], data.settings)
+    return {"ok": True}
+
+
+@app.delete("/memory")
+def clear_memory(request: Request):
+    user = current_user(request)
+    user_id = user["id"] if user else None
+    ns = f"u{user_id}" if user_id else None
+    brain.memory.clear_ns(ns)
+    return {"ok": True, "cleared": ns or "public"}
+
+
 @app.get("/notifications")
 def notifications():
     """Proactive messages NOVA starts on her own (check-ins, self-issues)."""
@@ -171,6 +214,7 @@ def system_status():
         "uptime_seconds": int(_t.time() - brain.started_at),
         "modules": sorted(brain.loader.all().keys()),
         "issues": brain.self_check.run(),
+        "dev_auth": os.environ.get("DEV_AUTH", "true").lower() == "true",
     }
 
 

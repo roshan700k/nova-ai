@@ -32,14 +32,15 @@ export default function AdminPanel() {
   };
 
   useEffect(() => {
-    fetchData();
+    const t = setTimeout(fetchData, 0);
+    return () => clearTimeout(t);
   }, []);
 
   const toggleFeature = async (name, enabled) => {
     try {
       await updateAdminFeature(name, { name, enabled: !enabled });
       fetchData();
-    } catch (err) {
+    } catch {
       alert("Failed to update feature");
     }
   };
@@ -48,7 +49,7 @@ export default function AdminPanel() {
     try {
       await updateAdminUser(userId, { role });
       fetchData();
-    } catch (err) {
+    } catch {
       alert("Failed to update user");
     }
   };

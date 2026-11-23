@@ -105,3 +105,22 @@ export async function getAdminStats() {
     const response = await api.get(`/admin/stats`);
     return response.data;
 }
+
+export const API_URL = API;
+
+export async function getSettings() {
+    const response = await api.get(`/settings`);
+    return response.data.settings || {};
+}
+
+export async function updateSettings(settings) {
+    await api.put(`/settings`, { settings });
+}
+
+export async function clearMemoryApi() {
+    await api.delete(`/memory`);
+}
+
+export async function clearAllChatsApi() {
+    await api.delete(`/chats`);
+}

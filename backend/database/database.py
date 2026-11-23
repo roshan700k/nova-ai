@@ -64,6 +64,15 @@ def create_table():
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_settings(
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT,
+        PRIMARY KEY (user_id, key)
+    )
+    """)
+
     # Migrate existing users table if needed
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
@@ -215,5 +224,37 @@ def delete_conversation(conv_id, user_id):
         "DELETE FROM conversations WHERE id = ? AND user_id IS ?",
         (conv_id, user_id),
     )
+    conn.commit()
+    conn.close()
+
+
+def delete_all_conversations(user_id):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM conversations WHERE user_id IS ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
+# ---------- user settings ----------
+
+def get_user_settings(user_id):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT key, value FROM user_settings WHERE user_id = ?", (user_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return {r[0]: r[1] for r in rows}
+
+
+def set_user_settings(user_id, settings: dict):
+    conn = connect()
+    cursor = conn.cursor()
+    for key, value in settings.items():
+        cursor.execute(
+            "INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) "
+            "ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value",
+            (user_id, str(key)[:50], str(value)[:2000]),
+        )
     conn.commit()
     conn.close()

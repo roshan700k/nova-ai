@@ -11,6 +11,11 @@ import {
   getChatMessages,
   pinChat as apiPinChat,
   deleteChat as apiDeleteChat,
+  getSettings,
+  updateSettings,
+  clearMemoryApi,
+  clearAllChatsApi,
+  API_URL,
 } from "../api/chatApi";
 import AdminPanel from "./AdminPanel";
 
@@ -38,6 +43,7 @@ export default function Dashboard() {
   const [toasts, setToasts] = useState([]);
   const [chats, setChats] = useState({ pinned: [], recents: [] });
   const [activeConvId, setActiveConvId] = useState(null);
+  const [prefs, setPrefs] = useState({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
@@ -76,7 +82,16 @@ export default function Dashboard() {
     if (activePage === "MEMORY") {
       getMemories().then((d) => setMemories(d.memories || {})).catch(() => {});
     }
+    if (activePage === "SETTINGS") {
+      getSettings().then(setPrefs).catch(() => {});
+      getMemories().then((d) => setMemories(d.memories || {})).catch(() => {});
+    }
   }, [activePage]);
+
+  const savePref = (key, value) => {
+    setPrefs((p) => ({ ...p, [key]: value }));
+    updateSettings({ [key]: value }).catch(() => {});
+  };
 
   const pushToast = (text) => {
     const id = Date.now();
@@ -254,9 +269,6 @@ export default function Dashboard() {
     d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const fmtDate = (d) =>
     d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric", year: "numeric" });
-  const uptime = status?.uptime_seconds
-    ? `${Math.floor(status.uptime_seconds / 60)}m`
-    : "—";
   const online = status && status.status === "online";
 
   const pageTitle = {
@@ -365,28 +377,115 @@ export default function Dashboard() {
   }
 
   function renderSettings() {
+    const memCount = Object.keys(memories).length;
+    const tone = prefs.tone || "balanced";
     return (
       <div className="settings-grid">
-        <section className="panel page-panel">
-          <div className="section-title"><span>SYSTEM</span></div>
-          <div className="kv"><span>Status</span><b className={online ? "ok" : "bad"}>{status?.status ?? "unknown"}</b></div>
-          <div className="kv"><span>AI Brain</span><b>{status?.llm_provider ?? "offline"} {status?.llm_model ? `(${status.llm_model})` : ""}</b></div>
-          <div className="kv"><span>Uptime</span><b>{uptime}</b></div>
-          <div className="kv"><span>Memory</span><b>{status?.memory_entries ?? 0} entries / {status?.memory_size_kb ?? 0} KB</b></div>
-          <div className="kv"><span>Version</span><b>{status?.version ?? "—"}</b></div>
-        </section>
+        {/* A. Account & Profile */}
         <section className="panel page-panel">
           <div className="section-title"><span>ACCOUNT</span></div>
-          <div className="kv"><span>User</span><b>{user ? `${user.name} (${user.provider})` : "Guest"}</b></div>
-          <button className="btn" onClick={user ? handleLogout : handleLogin}>
-            {user ? "Log out" : "Dev login"}
+          <div className="account-row">
+            <div className="profile-avatar">{user ? user.name[0].toUpperCase() : "◆"}</div>
+            <div>
+              <div className="account-name">{user ? user.name : "Guest"}</div>
+              <div className="account-email">{user ? user.email || user.provider : "Not signed in"}</div>
+            </div>
+          </div>
+          <button
+            className="btn google-btn"
+            onClick={() => { window.location.href = `${API_URL}/auth/google`; }}
+          >
+            ◉ Continue with Google
           </button>
-          <div className="hint">Google OAuth: set GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET in .env, then use /auth/google</div>
+          {status?.dev_auth && (
+            <button className="btn" onClick={user ? handleLogout : handleLogin}>
+              {user ? "Log out" : "Dev login (local only)"}
+            </button>
+          )}
         </section>
+
+        {/* B. AI Preferences */}
         <section className="panel page-panel">
-          <div className="section-title"><span>SELF-CHECK</span></div>
-          {(status?.issues ?? []).length === 0 && <div className="empty-note">All systems nominal</div>}
-          {(status?.issues ?? []).map((i, k) => <div className="issue-box" key={k}>⚠ {i}</div>)}
+          <div className="section-title"><span>AI PREFERENCES</span></div>
+          <div className="kv"><span>AI Model</span><b>{status?.llm_model || status?.llm_provider || "offline"}</b></div>
+          <label className="pref-label">Custom instructions</label>
+          <textarea
+            className="pref-textarea"
+            rows={3}
+            placeholder='e.g. "Reply in Hinglish, keep answers short"'
+            value={prefs.instructions || ""}
+            onChange={(e) => savePref("instructions", e.target.value)}
+          />
+          <label className="pref-label">Response tone</label>
+          <div className="tone-row">
+            {["balanced", "concise", "creative"].map((t) => (
+              <button
+                key={t}
+                className={"tone-btn " + (tone === t ? "active" : "")}
+                onClick={() => savePref("tone", t)}
+              >
+                {t[0].toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* C. Memory & Data */}
+        <section className="panel page-panel">
+          <div className="section-title"><span>MEMORY & DATA</span></div>
+          <div className="kv"><span>Memory entries</span><b>{memCount}</b></div>
+          <div className="kv"><span>Memory enabled</span>
+            <button
+              className={"mini-toggle " + ((prefs.memory_enabled ?? "1") === "1" ? "on" : "")}
+              onClick={() => savePref("memory_enabled", (prefs.memory_enabled ?? "1") === "1" ? "0" : "1")}
+            />
+          </div>
+          <div className="btn-row">
+            <button className="btn" onClick={() => setActivePage("MEMORY")}>View memory</button>
+            <button
+              className="btn danger"
+              onClick={async () => {
+                if (!confirm("Clear all memories NOVA has for you?")) return;
+                await clearMemoryApi().catch(() => {});
+                getMemories().then((d) => setMemories(d.memories || {})).catch(() => {});
+                pushToast("Memory cleared");
+              }}
+            >Clear memory</button>
+            <button
+              className="btn danger"
+              onClick={async () => {
+                if (!confirm("Delete ALL chat history? This cannot be undone.")) return;
+                await clearAllChatsApi().catch(() => {});
+                setChats({ pinned: [], recents: [] });
+                setActiveConvId(null);
+                setMessages([{ sender: "NOVA", text: "Ready when you are." }]);
+                pushToast("All chats deleted");
+              }}
+            >Clear chats</button>
+          </div>
+        </section>
+
+        {/* D. Appearance */}
+        <section className="panel page-panel">
+          <div className="section-title"><span>APPEARANCE</span></div>
+          <label className="pref-label">Theme</label>
+          <select
+            className="pref-select"
+            value={prefs.theme || "dark"}
+            onChange={(e) => savePref("theme", e.target.value)}
+          >
+            <option value="dark">Dark</option>
+            <option value="midnight" disabled>Midnight (soon)</option>
+          </select>
+          <label className="pref-label">Language</label>
+          <select
+            className="pref-select"
+            value={prefs.language || "en"}
+            onChange={(e) => savePref("language", e.target.value)}
+          >
+            <option value="en">English</option>
+            <option value="hi">Hindi (soon)</option>
+          </select>
         </section>
       </div>
     );
@@ -542,7 +641,7 @@ export default function Dashboard() {
         </aside>
 
         {/* main */}
-        <main className="main" key={activePage}>
+        <main className="main" key={activePage} style={activePage === "SETTINGS" ? { paddingBottom: 48 } : {}}>
           <div className="welcome">
             <h1>{greeting()}</h1>
             <p>{pageTitle} — {subtitle()}</p>
@@ -557,8 +656,8 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {/* quick actions only on non-home pages */}
-      {activePage !== "CHAT" && activePage !== "HOME" && (
+      {/* quick actions only on non-home/chat/settings pages */}
+      {!["CHAT", "HOME", "SETTINGS", "ADMIN"].includes(activePage) && (
         <div className="quick-actions">
           <button className="quick-button" onClick={() => runQuickAction("Tell me something interesting")}>◉ Ask NOVA</button>
           <button className="quick-button" onClick={() => runQuickAction("Give me today's tasks")}>◇ Tasks</button>
@@ -567,6 +666,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      {activePage !== "SETTINGS" && (
       <div className="chat-bar">
         <div className="chat-menu-wrap">
           <button
@@ -609,6 +709,7 @@ export default function Dashboard() {
         </button>
         <button className="send-button" onClick={handleSend} title="Send">▶</button>
       </div>
+      )}
 
       {!input && activePage === "CHAT" && (
         <div className="suggestions">
@@ -1061,6 +1162,47 @@ button { outline: none; }
 .btn:hover::before { transform: translateX(100%); }
 .btn:hover { background: rgba(139,92,246,.3); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124,58,237,.3); }
 .hint { margin-top: 12px; font-size: 11px; color: #4b5563; line-height: 1.5; }
+
+/* ---------- settings v2 ---------- */
+.account-row { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.account-row .profile-avatar { width: 48px; height: 48px; font-size: 18px; margin-bottom: 0; }
+.account-name { font-weight: 600; font-size: 15px; color: #fff; }
+.account-email { color: #6b7280; font-size: 12px; margin-top: 3px; }
+.google-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.pref-label { display: block; color: #6b7280; font-size: 11px; font-weight: 600; letter-spacing: .5px; margin: 14px 0 6px; text-transform: uppercase; }
+.pref-textarea {
+  width: 100%; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 10px; color: #e5e7eb; padding: 10px 12px; font-size: 13px;
+  font-family: inherit; resize: vertical; outline: none; transition: .15s;
+}
+.pref-textarea:focus { border-color: rgba(139,92,246,.5); background: rgba(255,255,255,.06); }
+.tone-row { display: flex; gap: 8px; }
+.tone-btn {
+  flex: 1; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.04); color: #9ca3af; font-size: 12px; cursor: pointer; transition: .15s;
+}
+.tone-btn:hover { border-color: rgba(139,92,246,.4); color: #fff; }
+.tone-btn.active { background: rgba(139,92,246,.2); border-color: rgba(139,92,246,.6); color: #ede9fe; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.btn-row .btn { margin-top: 0; padding: 8px 14px; font-size: 12px; }
+.btn.danger { border-color: rgba(239,68,68,.4); background: rgba(239,68,68,.1); color: #fca5a5; }
+.btn.danger:hover { background: rgba(239,68,68,.25); }
+.mini-toggle {
+  width: 40px; height: 22px; border-radius: 11px; border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08); cursor: pointer; position: relative; transition: .2s; padding: 0;
+}
+.mini-toggle::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+  border-radius: 50%; background: #6b7280; transition: .2s;
+}
+.mini-toggle.on { background: rgba(139,92,246,.4); border-color: rgba(139,92,246,.7); }
+.mini-toggle.on::after { left: 20px; background: #a78bfa; }
+.pref-select {
+  width: 100%; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 10px; color: #e5e7eb; padding: 10px 12px; font-size: 13px;
+  font-family: inherit; outline: none; cursor: pointer;
+}
+.pref-select:focus { border-color: rgba(139,92,246,.5); }
 
 .coming-soon {
   display: flex; flex-direction: column; align-items: center; justify-content: center;

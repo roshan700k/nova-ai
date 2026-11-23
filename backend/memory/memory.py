@@ -41,3 +41,11 @@ class Memory:
             return self.data
         prefix = f"{ns}:"
         return {k[len(prefix):]: v for k, v in self.data.items() if k.startswith(prefix)}
+
+    def clear_ns(self, ns: str | None):
+        if not ns:
+            return
+        prefix = f"{ns}:"
+        for k in [k for k in self.data if k.startswith(prefix)]:
+            del self.data[k]
+        self.save()
