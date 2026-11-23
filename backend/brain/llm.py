@@ -72,17 +72,34 @@ class LLMBrain:
             return self._ollama(message, history, tone_hint)
         return None
 
+    def think_file(self, message: str, data: bytes, mime: str,
+                   history: list | None = None, tone_hint: str = "") -> str | None:
+        """Send a file (image/pdf) + question to the model. Gemini only —
+        returns None for providers without vision so caller can fall back."""
+        if self.provider != "gemini" or not self.gemini_key:
+            return None
+        import base64
+        part = {"inline_data": {
+            "mime_type": mime,
+            "data": base64.b64encode(data).decode(),
+        }}
+        return self._gemini(message, history, tone_hint,
+                            file_part=part, max_tokens=4096)
+
     # ---------------------------------------------------------
     # Gemini
     # ---------------------------------------------------------
 
-    def _gemini(self, message: str, history: list | None, tone_hint: str = ""):
+    def _gemini(self, message: str, history: list | None, tone_hint: str = "",
+                file_part: dict | None = None, max_tokens: int = 512):
         contents = self._build_contents(message, history)
+        if file_part:
+            contents[-1]["parts"].append(file_part)
         persona = NOVA_PERSONA + (("\n" + tone_hint) if tone_hint else "")
         payload = {
             "system_instruction": {"parts": [{"text": persona}]},
             "contents": contents,
-            "generationConfig": {"temperature": 0.7, "maxOutputTokens": 512},
+            "generationConfig": {"temperature": 0.7, "maxOutputTokens": max_tokens},
         }
 
         last_exc = None

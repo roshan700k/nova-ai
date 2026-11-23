@@ -96,6 +96,17 @@ def create_table():
     """)
 
     cursor.execute("""
+    CREATE TABLE IF NOT EXISTS uploads(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        name TEXT,
+        mime TEXT,
+        data BLOB,
+        created_at TEXT DEFAULT (datetime('now'))
+    )
+    """)
+
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS agent_commands(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -497,3 +508,40 @@ def unnotified_results(user_id):
         conn.commit()
     conn.close()
     return [{"id": r[0], "action": r[1], "status": r[2], "result": r[3]} for r in rows]
+
+
+# ---------- file uploads (chat attachments) ----------
+
+def create_upload(user_id, name, mime, data: bytes):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO uploads (user_id, name, mime, data) VALUES (?, ?, ?, ?)",
+        (user_id, name[:200], mime[:100], data),
+    )
+    uid = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return uid
+
+
+def get_upload(upload_id, user_id):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, user_id, name, mime, data FROM uploads WHERE id = ? AND user_id IS ?",
+        (upload_id, user_id),
+    )
+    r = cursor.fetchone()
+    conn.close()
+    if not r:
+        return None
+    return {"id": r[0], "user_id": r[1], "name": r[2], "mime": r[3], "data": r[4]}
+
+
+def delete_upload(upload_id, user_id):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM uploads WHERE id = ? AND user_id IS ?", (upload_id, user_id))
+    conn.commit()
+    conn.close()

@@ -32,6 +32,7 @@ from api.tasks import router as tasks_router
 from api.research import router as research_router
 from api.automation import router as automation_router
 from api.agent import router as agent_router
+from api.uploads import router as uploads_router
 
 app = FastAPI()
 
@@ -44,6 +45,7 @@ app.include_router(tasks_router)
 app.include_router(research_router)
 app.include_router(automation_router)
 app.include_router(agent_router)
+app.include_router(uploads_router)
 
 create_table()
 brain = AstraBrain()
@@ -73,6 +75,7 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     message: str = Field(default="", max_length=4000)
     conversation_id: int | None = None
+    attachment_id: int | None = None
 
 
 @app.get("/")
@@ -95,6 +98,35 @@ def chat(data: ChatRequest, request: Request):
         conv_id = None  # stale/foreign id -> start fresh
     if conv_id is None:
         conv_id = create_conversation(user_id)
+
+    # File attachment: image/PDF -> Gemini vision, text -> injected into prompt
+    if data.attachment_id:
+        from database.database import get_upload, delete_upload
+        up = get_upload(data.attachment_id, user_id)
+        if up:
+            shown = (data.message or "").strip() or "Please analyze this file."
+            add_message(conv_id, "user", f"{shown}\n📎 {up['name']}")
+            set_conversation_title(conv_id, (data.message or up["name"])[:40])
+            mime = up["mime"]
+            reply = None
+            if mime.startswith("text/") or mime in ("application/json", "application/xml"):
+                text = up["data"].decode("utf-8", errors="replace")[:12000]
+                reply = brain.think(
+                    f"{shown}\n\nFile content ({up['name']}):\n```\n{text}\n```",
+                    user_id=user_id,
+                )
+            else:
+                reply = brain.llm.think_file(shown, up["data"], mime)
+            if reply is None:
+                reply = ("I can't analyze this file type right now — "
+                         "image/PDF analysis needs the Gemini provider.")
+            add_message(conv_id, "nova", reply)
+            delete_upload(up["id"], user_id)  # one-time use
+            return {
+                "reply": reply,
+                "user": user["name"] if user else None,
+                "conversation_id": conv_id,
+            }
 
     # Research command: "research X" / "analyse X" / "what's happening"
     low = data.message.lower().strip()

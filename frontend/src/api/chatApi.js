@@ -19,12 +19,23 @@ const api = axios.create({
   withCredentials: true,
 });
 
-export async function sendMessage(message, conversationId = null, signal = null) {
+export async function sendMessage(message, conversationId = null, signal = null, attachmentId = null) {
     const response = await api.post(`/chat`, {
         message: message,
         conversation_id: conversationId,
+        attachment_id: attachmentId,
     }, signal ? { signal } : {});
 
+    return response.data;
+}
+
+export async function uploadFile(file) {
+    const form = new FormData();
+    form.append("file", file);
+    const response = await api.post(`/uploads`, form, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 60000,
+    });
     return response.data;
 }
 

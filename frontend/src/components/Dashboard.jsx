@@ -23,6 +23,7 @@ import {
   deleteTask,
   getAgentStatus,
   registerAgent,
+  uploadFile,
 } from "../api/chatApi";
 import AdminPanel from "./AdminPanel";
 import HoloAvatar from "./HoloAvatar";
@@ -118,6 +119,9 @@ export default function Dashboard() {
   const [newTask, setNewTask] = useState("");
   const [wakeMode, setWakeMode] = useState(false);
   const [homeNote, setHomeNote] = useState("");
+  const [attachment, setAttachment] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
   const abortRef = useRef(null);
   const wakeRef = useRef(null);
   const handleSendRef = useRef(null);
@@ -300,12 +304,14 @@ export default function Dashboard() {
     setMessages((p) => [...p, { sender: "You", text: message }]);
     setInput("");
     setHomeNote("");
+    const att = attachment;
+    setAttachment(null);
     setLoading(true);
     setActivePage("CHAT");
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     try {
-      const data = await sendMessage(message, activeConvId, ctrl.signal);
+      const data = await sendMessage(message, activeConvId, ctrl.signal, att?.id ?? null);
       setMessages((p) => [...p, { sender: "NOVA", text: data.reply }]);
       if (data.conversation_id) setActiveConvId(data.conversation_id);
       refreshChats();
@@ -391,6 +397,22 @@ export default function Dashboard() {
   const runQuickAction = (text) => {
     setInput(text);
     handleSend(text);
+  };
+
+  const handleFilePick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      const up = await uploadFile(file);
+      setAttachment({ id: up.id, name: up.name });
+      pushToast(`Attached: ${up.name}`);
+    } catch (err) {
+      pushToast(err?.response?.data?.detail || "Upload failed — images/PDF/text only, max 15MB");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleAgent = async () => {
@@ -1008,6 +1030,21 @@ export default function Dashboard() {
 
       {activePage !== "SETTINGS" && (
       <div className="chat-bar">
+        {(attachment || uploading) && (
+          <div className="attach-chip">
+            {uploading ? "Uploading..." : `⬆ ${attachment.name}`}
+            {!uploading && (
+              <button onClick={() => setAttachment(null)} title="Remove">×</button>
+            )}
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          hidden
+          accept="image/*,.pdf,.txt,.md,.csv,.json,.log"
+          onChange={handleFilePick}
+        />
         <div className="chat-menu-wrap">
           <button
             className="chat-menu-btn"
@@ -1028,6 +1065,10 @@ export default function Dashboard() {
                 </div>
                 <div className="profile-menu-item" onClick={() => { runQuickAction("Search the web for me"); setChatMenuOpen(false); }}>
                   <span className="nav-icon">◉</span><span>Search the web</span>
+                </div>
+                <div className="profile-menu-item" onClick={() => { fileInputRef.current?.click(); setChatMenuOpen(false); }}>
+                  <span className="nav-icon">{uploading ? "◌" : "⬆"}</span>
+                  <span>{uploading ? "Uploading..." : "Attach file or photo"}</span>
                 </div>
                 <div className="profile-menu-item" onClick={handleAgent}>
                   <span className="nav-icon">▣</span><span>PC Agent — control this computer</span>
@@ -1539,6 +1580,22 @@ button { outline: none; }
   display: grid; place-items: center; transition: .15s; flex-shrink: 0;
 }
 .stop-button:hover { background: rgba(239,68,68,.3); }
+
+/* ---------- attachment chip ---------- */
+.attach-chip {
+  position: absolute; bottom: calc(100% + 8px); left: 8px;
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(30,27,45,.95); border: 1px solid rgba(139,92,246,.45);
+  border-radius: 10px; padding: 6px 12px; font-size: 12px; color: #ddd6fe;
+  box-shadow: 0 6px 20px rgba(0,0,0,.5); max-width: 320px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  animation: fadeup .2s ease-out; z-index: 5;
+}
+.attach-chip button {
+  background: none; border: 0; color: #9ca3af; font-size: 15px;
+  cursor: pointer; padding: 0 2px; line-height: 1;
+}
+.attach-chip button:hover { color: #fff; }
 
 /* ---------- pages ---------- */
 .page-panel { padding: 28px; max-width: 760px; margin-top: 8px; }
