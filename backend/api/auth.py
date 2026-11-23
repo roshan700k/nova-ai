@@ -22,10 +22,21 @@ GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 SESSION_SECRET = os.environ.get("SESSION_SECRET", "astra-dev-secret-change-me")
 SESSION_COOKIE = "astra_session"
 SESSION_TTL = 7 * 24 * 3600  # 7 days
+COOKIE_SAMESITE = os.environ.get("COOKIE_SAMESITE", "lax")
+
+
+def _cookie_kwargs(request: Request) -> dict:
+    return {
+        "max_age": SESSION_TTL,
+        "httponly": True,
+        "samesite": COOKIE_SAMESITE,
+        "secure": request.url.scheme == "https" or COOKIE_SAMESITE == "none",
+    }
 
 REDIRECT_URI = os.environ.get(
     "GOOGLE_REDIRECT_URI", "http://127.0.0.1:8000/auth/google/callback"
 )
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 
 
 def _sign(payload: str) -> str:
@@ -87,7 +98,7 @@ def google_login():
 
 
 @router.get("/google/callback")
-def google_callback(code: str, response: Response):
+def google_callback(code: str, request: Request, response: Response):
     token_resp = requests.post(
         "https://oauth2.googleapis.com/token",
         data={
@@ -120,15 +131,13 @@ def google_callback(code: str, response: Response):
     response.set_cookie(
         SESSION_COOKIE,
         _make_session(user["id"]),
-        max_age=SESSION_TTL,
-        httponly=True,
-        samesite="lax",
+        **_cookie_kwargs(request),
     )
-    return RedirectResponse("http://localhost:5173/?login=ok")
+    return RedirectResponse(f"{FRONTEND_URL}/?login=ok")
 
 
 @router.post("/dev-login")
-def dev_login(body: dict, response: Response):
+def dev_login(body: dict, request: Request, response: Response):
     """Development-only login so the app works before Google OAuth is set up."""
     if os.environ.get("DEV_AUTH", "true").lower() != "true":
         return {"error": "dev login disabled"}
@@ -138,16 +147,19 @@ def dev_login(body: dict, response: Response):
     response.set_cookie(
         SESSION_COOKIE,
         _make_session(user["id"]),
-        max_age=SESSION_TTL,
-        httponly=True,
-        samesite="lax",
+        **_cookie_kwargs(request),
     )
     return {"ok": True, "user": user}
 
 
 @router.post("/logout")
-def logout(response: Response):
-    response.delete_cookie(SESSION_COOKIE)
+def logout(request: Request, response: Response):
+    response.delete_cookie(
+        SESSION_COOKIE,
+        path="/",
+        samesite=COOKIE_SAMESITE,
+        secure=request.url.scheme == "https" or COOKIE_SAMESITE == "none",
+    )
     return {"ok": True}
 
 

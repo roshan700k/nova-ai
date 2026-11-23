@@ -2,7 +2,8 @@ services:
   - type: web
     name: nova-backend
     env: python
-    buildCommand: pip install -r requirements.txt
+    rootDir: backend
+    buildCommand: pip install -r ../requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
@@ -13,10 +14,24 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
       - key: SESSION_SECRET
         sync: false
       - key: DEV_AUTH
         value: "false"
+      - key: ASTRA_DB_PATH
+        value: /var/data/nova.db
+      - key: MEMORY_FILE_PATH
+        value: /var/data/nova_memory.json
+      - key: FRONTEND_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: COOKIE_SAMESITE
+        value: "none"
+      - key: OWNER_EMAIL
+        sync: false
     disk:
       name: nova-data
       mountPath: /var/data

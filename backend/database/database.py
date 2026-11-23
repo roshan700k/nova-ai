@@ -59,10 +59,14 @@ def create_table():
 def upsert_user(email: str, name: str, provider: str, role: str = "user"):
     conn = connect()
     cursor = conn.cursor()
-    # First admin gets admin role
-    existing_admin = cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'").fetchone()[0]
-    if existing_admin == 0:
+    # Bootstrap admin: OWNER_EMAIL env wins; otherwise first user becomes admin (dev only)
+    owner_email = os.environ.get("OWNER_EMAIL", "").strip().lower()
+    if owner_email and email.strip().lower() == owner_email:
         role = "admin"
+    elif not owner_email:
+        existing_admin = cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'").fetchone()[0]
+        if existing_admin == 0:
+            role = "admin"
     cursor.execute(
         "INSERT INTO users (email, name, provider, role) VALUES (?, ?, ?, ?) "
         "ON CONFLICT(email) DO UPDATE SET name=excluded.name",

@@ -1,3 +1,4 @@
+import os
 import threading
 import time
 
@@ -24,6 +25,12 @@ app.include_router(admin_router)
 create_table()
 brain = AstraBrain()
 
+_extra_origins = [
+    o.strip()
+    for o in os.environ.get("ALLOWED_ORIGINS", "").split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -33,8 +40,8 @@ app.add_middleware(
         "http://10.82.230.101:8000",
         "http://192.168.1.100:5173",
         "http://192.168.1.100:8000",
-    ],
-    allow_credentials=False,
+    ] + _extra_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
