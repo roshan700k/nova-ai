@@ -44,6 +44,7 @@ export default function Dashboard() {
   const [chats, setChats] = useState({ pinned: [], recents: [] });
   const [activeConvId, setActiveConvId] = useState(null);
   const [prefs, setPrefs] = useState({});
+  const [prefsSaved, setPrefsSaved] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
@@ -91,6 +92,8 @@ export default function Dashboard() {
   const savePref = (key, value) => {
     setPrefs((p) => ({ ...p, [key]: value }));
     updateSettings({ [key]: value }).catch(() => {});
+    setPrefsSaved(true);
+    setTimeout(() => setPrefsSaved(false), 1500);
   };
 
   const pushToast = (text) => {
@@ -298,7 +301,7 @@ export default function Dashboard() {
       WORKSPACE: "Tasks, notes and calendar — coming soon.",
       "AI TOOLS": "Quick tools — coming soon.",
       MEDIA: "Videos and media — coming soon.",
-      SETTINGS: "System health and account.",
+      SETTINGS: "Manage your account, AI behavior, memory, and appearance.",
     }[activePage];
   }
 
@@ -408,7 +411,10 @@ export default function Dashboard() {
         <section className="panel page-panel">
           <div className="section-title"><span>AI PREFERENCES</span></div>
           <div className="kv"><span>AI Model</span><b>{status?.llm_model || status?.llm_provider || "offline"}</b></div>
-          <label className="pref-label">Custom instructions</label>
+          <div className="pref-label-row">
+            <label className="pref-label">Custom instructions</label>
+            {prefsSaved && <span className="saved-hint">Saved</span>}
+          </div>
           <textarea
             className="pref-textarea"
             rows={3}
@@ -643,8 +649,8 @@ export default function Dashboard() {
         {/* main */}
         <main className="main" key={activePage} style={activePage === "SETTINGS" ? { paddingBottom: 48 } : {}}>
           <div className="welcome">
-            <h1>{greeting()}</h1>
-            <p>{pageTitle} — {subtitle()}</p>
+            <h1>{activePage === "SETTINGS" ? "Settings" : greeting()}</h1>
+            <p>{activePage === "SETTINGS" ? subtitle() : `${pageTitle} — ${subtitle()}`}</p>
           </div>
 
           {activePage === "HOME" && renderHome()}
@@ -1140,7 +1146,7 @@ button { outline: none; }
 .memory-item:hover { background: rgba(255,255,255,.02); padding-left: 8px; border-radius: 6px; }
 .mem-key { color: #a78bfa; font-weight: 600; font-size: 13px; }
 .mem-val { color: #9ca3af; text-align: right; word-break: break-word; font-size: 13px; }
-.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 8px; }
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-top: 8px; max-width: 1020px; }
 .kv {
   display: flex; justify-content: space-between; padding: 11px 0;
   border-bottom: 1px solid rgba(255,255,255,.05); color: #9ca3af; font-size: 13px;
@@ -1170,6 +1176,9 @@ button { outline: none; }
 .account-email { color: #6b7280; font-size: 12px; margin-top: 3px; }
 .google-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .pref-label { display: block; color: #6b7280; font-size: 11px; font-weight: 600; letter-spacing: .5px; margin: 14px 0 6px; text-transform: uppercase; }
+.pref-label-row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+.pref-label-row .pref-label { margin-bottom: 0; }
+.saved-hint { color: #34d399; font-size: 11px; font-weight: 600; animation: fade-in-page .2s ease-out; }
 .pref-textarea {
   width: 100%; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
   border-radius: 10px; color: #e5e7eb; padding: 10px 12px; font-size: 13px;
@@ -1183,8 +1192,8 @@ button { outline: none; }
 }
 .tone-btn:hover { border-color: rgba(139,92,246,.4); color: #fff; }
 .tone-btn.active { background: rgba(139,92,246,.2); border-color: rgba(139,92,246,.6); color: #ede9fe; }
-.btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.btn-row .btn { margin-top: 0; padding: 8px 14px; font-size: 12px; }
+.btn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-top: 14px; }
+.btn-row .btn { margin-top: 0; padding: 9px 10px; font-size: 12px; width: 100%; }
 .btn.danger { border-color: rgba(239,68,68,.4); background: rgba(239,68,68,.1); color: #fca5a5; }
 .btn.danger:hover { background: rgba(239,68,68,.25); }
 .mini-toggle {
