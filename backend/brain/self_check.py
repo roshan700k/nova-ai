@@ -28,8 +28,10 @@ class SelfCheck:
         except OSError:
             pass
 
-        # 3. .env present?
-        if not os.path.exists(".env") and not os.path.exists(os.path.join("..", ".env")):
+        # 3. Credentials present? (.env file OR env vars — Render uses env vars)
+        has_env_file = os.path.exists(".env") or os.path.exists(os.path.join("..", ".env"))
+        has_key = bool(os.environ.get("GEMINI_API_KEY", "").strip())
+        if not has_env_file and not has_key:
             issues.append("I don't see a .env file — API keys may not be loading")
 
         return issues
