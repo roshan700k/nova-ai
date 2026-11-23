@@ -19,6 +19,58 @@ import {
 } from "../api/chatApi";
 import AdminPanel from "./AdminPanel";
 
+// ---------- lightweight markdown renderer ----------
+function inlineFormat(s, keyPrefix) {
+  return s.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((seg, i) => {
+    const key = `${keyPrefix}-${i}`;
+    if (seg.startsWith("**") && seg.endsWith("**") && seg.length > 4)
+      return <strong key={key}>{seg.slice(2, -2)}</strong>;
+    if (seg.startsWith("`") && seg.endsWith("`") && seg.length > 2)
+      return <code key={key} className="inline-code">{seg.slice(1, -1)}</code>;
+    return <span key={key}>{seg}</span>;
+  });
+}
+
+function FormattedText({ text }) {
+  const out = [];
+  let inCode = false;
+  let codeLines = [];
+  let list = [];
+  let key = 0;
+  const flushList = () => {
+    if (list.length) {
+      out.push(<ul key={key++} className="msg-list">{list}</ul>);
+      list = [];
+    }
+  };
+  for (const line of String(text).split("\n")) {
+    if (line.trim().startsWith("```")) {
+      flushList();
+      if (inCode) {
+        out.push(<pre key={key++} className="msg-code"><code>{codeLines.join("\n")}</code></pre>);
+        codeLines = [];
+        inCode = false;
+      } else {
+        inCode = true;
+      }
+      continue;
+    }
+    if (inCode) { codeLines.push(line); continue; }
+    const t = line.trim();
+    const bullet = t.match(/^[-•*]\s+(.*)/);
+    if (bullet) {
+      list.push(<li key={key++}>{inlineFormat(bullet[1], `li${key}`)}</li>);
+      continue;
+    }
+    flushList();
+    if (t) out.push(<p key={key++} className="msg-p">{inlineFormat(line, `p${key}`)}</p>);
+  }
+  if (inCode && codeLines.length)
+    out.push(<pre key={key++} className="msg-code"><code>{codeLines.join("\n")}</code></pre>);
+  flushList();
+  return <>{out}</>;
+}
+
 const PROFILE_MENU = [
   ["▣", "Memory", "MEMORY"],
   ["▤", "Workspace", "WORKSPACE"],
@@ -45,6 +97,9 @@ export default function Dashboard() {
   const [activeConvId, setActiveConvId] = useState(null);
   const [prefs, setPrefs] = useState({});
   const [prefsSaved, setPrefsSaved] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
+  const abortRef = useRef(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
@@ -192,20 +247,36 @@ export default function Dashboard() {
     setInput("");
     setLoading(true);
     setActivePage("CHAT");
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
-      const data = await sendMessage(message, activeConvId);
+      const data = await sendMessage(message, activeConvId, ctrl.signal);
       setMessages((p) => [...p, { sender: "NOVA", text: data.reply }]);
       if (data.conversation_id) setActiveConvId(data.conversation_id);
       refreshChats();
       speak(data.reply);
-    } catch {
-      const err = "I lost connection to my backend — is it running?";
-      setMessages((p) => [...p, { sender: "NOVA", text: err }]);
-      speak(err);
+    } catch (err) {
+      if (err?.name === "CanceledError" || err?.name === "AbortError" || err?.code === "ERR_CANCELED") {
+        setMessages((p) => [...p, { sender: "NOVA", text: "⏹ Stopped." }]);
+      } else {
+        const status = err?.response?.status;
+        const errText = !err?.response
+          ? "Connection issue — please try again."
+          : status === 502 || status === 503
+            ? "NOVA is waking up — try again in a moment."
+          : status === 429
+            ? "Too many requests — please wait a bit."
+          : "Something went wrong — please try again.";
+        setMessages((p) => [...p, { sender: "NOVA", text: errText }]);
+        speak(errText);
+      }
     } finally {
+      abortRef.current = null;
       setLoading(false);
     }
   };
+
+  const stopGenerating = () => abortRef.current?.abort();
 
   const runQuickAction = (text) => {
     setInput(text);
@@ -234,10 +305,12 @@ export default function Dashboard() {
     setActiveConvId(null);
     setMessages([{ sender: "NOVA", text: "Ready when you are." }]);
     setActivePage("HOME");
+    setMobileOpen(false);
   };
 
   const selectChat = async (conv) => {
     setActiveConvId(conv.id);
+    setMobileOpen(false);
     try {
       const msgs = await getChatMessages(conv.id);
       setMessages(msgs.length ? msgs : [{ sender: "NOVA", text: `Resuming: ${conv.title}` }]);
@@ -341,13 +414,33 @@ export default function Dashboard() {
           <div className="chat-empty">
             <div className="chat-empty-icon">◆</div>
             <div className="chat-empty-title">Ready when you are.</div>
+            <div className="chat-empty-prompt">
+              <button className="quick-chip" onClick={() => runQuickAction("Plan my day")}>◇ Plan my day</button>
+              <button className="quick-chip" onClick={() => runQuickAction("Summarize this for me: paste your notes")}>▤ Summarize notes</button>
+              <button className="quick-chip" onClick={() => runQuickAction("Explain a concept simply")}>◈ Explain a concept</button>
+            </div>
           </div>
         ) : (
           <div className="chat-history">
             {messages.map((m, i) => (
               <div className={`chat-msg ${m.sender === "You" ? "user" : "nova"}`} key={i}>
                 <span className="msg-sender">{m.sender === "You" ? "You" : "NOVA"}</span>
-                <span className="msg-text">{m.text}</span>
+                <div className="msg-body">
+                  <FormattedText text={m.text} />
+                  {m.sender !== "You" && (
+                    <button
+                      className="msg-copy"
+                      title="Copy"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(m.text).catch(() => {});
+                        setCopiedId(i);
+                        setTimeout(() => setCopiedId(null), 1500);
+                      }}
+                    >
+                      {copiedId === i ? "Copied" : "Copy"}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
             {loading && (
@@ -527,8 +620,14 @@ export default function Dashboard() {
       {/* topbar */}
       <header className="topbar">
         <div className="brand">
-          <button className="sidebar-toggle" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
-            {sidebarCollapsed ? "→" : "←"}
+          <button
+            className="sidebar-toggle"
+            onClick={() => {
+              if (window.innerWidth <= 1100) setMobileOpen(!mobileOpen);
+              else setSidebarCollapsed(!sidebarCollapsed);
+            }}
+          >
+            {sidebarCollapsed && window.innerWidth > 1100 ? "→" : "←"}
           </button>
           <div className="brand-logo">◆</div>
           <div>
@@ -551,9 +650,10 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <div className={`layout ${sidebarCollapsed ? "collapsed" : ""}`}>
+      <div className={`layout ${sidebarCollapsed ? "collapsed" : ""} ${mobileOpen ? "mobile-open" : ""}`}>
+        {mobileOpen && <div className="sidebar-backdrop" onClick={() => setMobileOpen(false)} />}
         {/* sidebar */}
-        <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
+        <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""} ${mobileOpen ? "mobile-open" : ""}`}>
           <button className="new-chat-btn" onClick={newChat}>
             <span className="new-chat-icon">＋</span>
             {!sidebarCollapsed && <span>New chat</span>}
@@ -604,7 +704,7 @@ export default function Dashboard() {
                     <div
                       key={page}
                       className={"profile-menu-item " + (activePage === page ? "active" : "")}
-                      onClick={() => { setActivePage(page); setProfileMenuOpen(false); }}
+                      onClick={() => { setActivePage(page); setProfileMenuOpen(false); setMobileOpen(false); }}
                     >
                       <span className="nav-icon">{icon}</span>
                       <span>{label}</span>
@@ -613,7 +713,7 @@ export default function Dashboard() {
                   {user?.role === "admin" && (
                     <div
                       className={"profile-menu-item " + (activePage === "ADMIN" ? "active" : "")}
-                      onClick={() => { setActivePage("ADMIN"); setProfileMenuOpen(false); }}
+                      onClick={() => { setActivePage("ADMIN"); setProfileMenuOpen(false); setMobileOpen(false); }}
                     >
                       <span className="nav-icon">⬡</span>
                       <span>Admin Panel</span>
@@ -713,6 +813,9 @@ export default function Dashboard() {
         >
           {listening ? "◼" : speaking ? "◉" : "◯"}
         </button>
+        {loading && (
+          <button className="stop-button" onClick={stopGenerating} title="Stop generating">◼</button>
+        )}
         <button className="send-button" onClick={handleSend} title="Send">▶</button>
       </div>
       )}
@@ -1129,6 +1232,7 @@ button { outline: none; }
 }
 .chat-empty-icon { font-size: 48px; color: #374151; margin-bottom: 16px; }
 .chat-empty-title { font-size: 20px; color: #d1d5db; font-weight: 500; }
+.chat-empty-prompt { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 22px; }
 .chat-history { flex: 1; overflow-y: auto; padding: 16px 4px; max-height: calc(100vh - 300px); }
 .chat-msg { margin-bottom: 18px; font-size: 14px; line-height: 1.6; display: flex; gap: 12px; animation: fadeup .3s ease-out; }
 @keyframes fadeup { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -1136,6 +1240,35 @@ button { outline: none; }
 .chat-msg.nova .msg-sender { color: #a78bfa; }
 .chat-msg.user .msg-sender { color: #38bdf8; }
 .msg-text { flex: 1; color: #d1d5db; white-space: pre-wrap; }
+.msg-body { flex: 1; color: #d1d5db; position: relative; min-width: 0; }
+.msg-p { margin: 0 0 8px; }
+.msg-p:last-child { margin-bottom: 0; }
+.msg-list { margin: 4px 0 10px; padding-left: 20px; }
+.msg-list li { margin-bottom: 4px; }
+.msg-code {
+  background: rgba(0,0,0,.4); border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px; padding: 12px 14px; overflow-x: auto;
+  font-family: 'Consolas', 'Courier New', monospace; font-size: 12.5px;
+  line-height: 1.55; margin: 8px 0; white-space: pre;
+}
+.inline-code {
+  background: rgba(139,92,246,.15); border: 1px solid rgba(139,92,246,.25);
+  border-radius: 5px; padding: 1px 6px; font-family: 'Consolas', monospace; font-size: 12.5px;
+}
+.msg-copy {
+  position: absolute; top: -4px; right: 0; opacity: 0;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+  color: #9ca3af; font-size: 11px; padding: 3px 10px; border-radius: 6px;
+  cursor: pointer; transition: .15s;
+}
+.chat-msg:hover .msg-copy { opacity: 1; }
+.msg-copy:hover { color: #fff; background: rgba(255,255,255,.1); }
+.stop-button {
+  width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgba(239,68,68,.5);
+  background: rgba(239,68,68,.15); color: #fca5a5; font-size: 14px; cursor: pointer;
+  display: grid; place-items: center; transition: .15s; flex-shrink: 0;
+}
+.stop-button:hover { background: rgba(239,68,68,.3); }
 
 /* ---------- pages ---------- */
 .page-panel { padding: 28px; max-width: 760px; margin-top: 8px; }
@@ -1305,13 +1438,19 @@ button { outline: none; }
 }
 
 @media (max-width: 1100px) {
-  .layout { grid-template-columns: 64px minmax(0,1fr); }
-  .layout.collapsed { grid-template-columns: 64px minmax(0,1fr); }
-  .sidebar { padding: 12px 8px; }
-  .new-chat-btn, .sidebar-section, .sidebar-divider { display: none; }
-  .nav-label, .profile { display: none; }
-  .nav-item { justify-content: center; padding: 0; height: 44px; }
-  .chat-bar, .quick-actions, .suggestions { left: 88px; right: 20px; }
+  .layout { grid-template-columns: 0 minmax(0,1fr); }
+  .layout.collapsed { grid-template-columns: 0 minmax(0,1fr); }
+  .sidebar {
+    position: fixed; top: 60px; bottom: 0; left: 0; width: 280px; z-index: 46;
+    transform: translateX(-105%); transition: transform .3s ease;
+    padding: 16px 12px; box-shadow: 20px 0 60px rgba(0,0,0,.5);
+  }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar-backdrop {
+    position: fixed; top: 60px; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,.55); z-index: 45; backdrop-filter: blur(2px);
+  }
+  .chat-bar, .quick-actions, .suggestions { left: 20px; right: 20px; }
   .home-full { min-height: calc(100vh - 120px); }
   .avatar-orb-large { width: 240px; height: 240px; }
   .avatar-face-large { width: 160px; height: 160px; }
@@ -1321,17 +1460,15 @@ button { outline: none; }
   .topbar { height: 52px; padding: 0 14px; }
   .brand-subtitle, .top-center { display: none; }
   .clock { font-size: 12px; }
-  .layout { grid-template-columns: 52px 1fr; }
-  .layout.collapsed { grid-template-columns: 52px 1fr; }
   .main { padding: 20px 16px 200px; }
   .home-full { min-height: calc(100vh - 100px); gap: 24px; }
   .avatar-orb-large { width: 180px; height: 180px; }
   .avatar-face-large { width: 120px; height: 120px; }
   .home-status { font-size: 12px; letter-spacing: 4px; }
-  .chat-bar { left: 62px; right: 10px; bottom: 12px; padding: 6px; }
+  .chat-bar { left: 12px; right: 12px; bottom: 12px; padding: 6px; }
   .chat-input { padding: 12px 12px; font-size: 16px; }
-  .voice-button, .send-button { width: 44px; height: 44px; font-size: 16px; }
-  .quick-actions, .suggestions { left: 62px; right: 10px; bottom: 84px; }
+  .voice-button, .send-button, .stop-button { width: 44px; height: 44px; font-size: 16px; }
+  .quick-actions, .suggestions { left: 16px; right: 16px; bottom: 84px; }
   .quick-button, .suggestion { padding: 10px 14px; font-size: 13px; }
   .quick-chip { padding: 12px 20px; font-size: 14px; }
 }
@@ -1339,7 +1476,7 @@ button { outline: none; }
   .avatar-orb-large { width: 140px; height: 140px; }
   .avatar-face-large { width: 90px; height: 90px; }
   .home-status { font-size: 10px; letter-spacing: 3px; }
-  .chat-bar { left: 52px; right: 8px; bottom: 8px; }
-  .quick-actions, .suggestions { left: 52px; right: 8px; bottom: 76px; }
+  .chat-bar { left: 8px; right: 8px; bottom: 8px; }
+  .quick-actions, .suggestions { left: 12px; right: 12px; bottom: 76px; }
 }
 `;
