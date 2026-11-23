@@ -29,12 +29,12 @@ import HoloAvatar from "./HoloAvatar";
 
 // ---------- lightweight markdown renderer ----------
 function inlineFormat(s, keyPrefix) {
-  return s.split(/(\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\*\*[^*]+\*\*|`[^`]+`|https?:\/\/[^\s)]+)/g).map((seg, i) => {
+  return s.split(/(\[[^\]]+\]\((?:https?:\/\/|mailto:)[^)\s]+\)|\*\*[^*]+\*\*|`[^`]+`|(?:https?:\/\/|mailto:)[^\s)]+)/g).map((seg, i) => {
     const key = `${keyPrefix}-${i}`;
-    const mdLink = seg.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
+    const mdLink = seg.match(/^\[([^\]]+)\]\(((?:https?:\/\/|mailto:)[^)\s]+)\)$/);
     if (mdLink)
       return <a key={key} className="msg-link" href={mdLink[2]} target="_blank" rel="noopener noreferrer">{mdLink[1]}</a>;
-    if (/^https?:\/\/[^\s)]+$/.test(seg))
+    if (/^(?:https?:\/\/|mailto:)[^\s)]+$/.test(seg))
       return <a key={key} className="msg-link" href={seg} target="_blank" rel="noopener noreferrer">{seg}</a>;
     if (seg.startsWith("**") && seg.endsWith("**") && seg.length > 4)
       return <strong key={key}>{seg.slice(2, -2)}</strong>;

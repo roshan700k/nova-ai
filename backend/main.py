@@ -162,6 +162,26 @@ def chat(data: ChatRequest, request: Request):
                 "conversation_id": conv_id,
             }
 
+    # Email draft: "email boss about leave", "write email to team"
+    from api.email import looks_like_email_command, draft_email
+    if looks_like_email_command(data.message):
+        add_message(conv_id, "user", data.message)
+        set_conversation_title(conv_id, data.message[:40])
+        ns = f"u{user_id}" if user_id else None
+        mems = brain.memory.all(ns) if ns else {
+            k: v for k, v in brain.memory.all(None).items() if ":" not in k
+        }
+        reply = draft_email(data.message, brain.llm, mems) or (
+            "I couldn't draft that right now — try rephrasing, e.g. "
+            "\"email to boss about tomorrow's leave\"."
+        )
+        add_message(conv_id, "nova", reply)
+        return {
+            "reply": reply,
+            "user": user["name"] if user else None,
+            "conversation_id": conv_id,
+        }
+
     add_message(conv_id, "user", data.message)
     set_conversation_title(conv_id, data.message[:40])  # only applies while title is 'New chat'
 
