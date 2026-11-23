@@ -19,12 +19,31 @@ const api = axios.create({
   withCredentials: true,
 });
 
-export async function sendMessage(message) {
+export async function sendMessage(message, conversationId = null) {
     const response = await api.post(`/chat`, {
         message: message,
+        conversation_id: conversationId,
     });
 
-    return response.data.reply;
+    return response.data;
+}
+
+export async function getChats() {
+    const response = await api.get(`/chats`);
+    return response.data;
+}
+
+export async function getChatMessages(convId) {
+    const response = await api.get(`/chats/${convId}/messages`);
+    return response.data.messages || [];
+}
+
+export async function pinChat(convId, pinned) {
+    await api.put(`/chats/${convId}/pin`, { pinned });
+}
+
+export async function deleteChat(convId) {
+    await api.delete(`/chats/${convId}`);
 }
 
 export async function getNotifications() {

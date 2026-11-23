@@ -7,6 +7,10 @@ import {
   logout,
   getSystemStatus,
   getMemories,
+  getChats,
+  getChatMessages,
+  pinChat as apiPinChat,
+  deleteChat as apiDeleteChat,
 } from "../api/chatApi";
 import AdminPanel from "./AdminPanel";
 
@@ -32,8 +36,8 @@ export default function Dashboard() {
   const [status, setStatus] = useState(null);
   const [memories, setMemories] = useState({});
   const [toasts, setToasts] = useState([]);
-  const [chatHistory, setChatHistory] = useState(["Plan my day", "Write code", "Research topic"]);
-  const [pinnedChats, setPinnedChats] = useState(["Daily brief", "Project ideas"]);
+  const [chats, setChats] = useState({ pinned: [], recents: [] });
+  const [activeConvId, setActiveConvId] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
@@ -57,8 +61,11 @@ export default function Dashboard() {
   }, []);
 
   // ---------- session + live data ----------
+  // ---------- chat history ----------
+  const refreshChats = () => getChats().then(setChats).catch(() => {});
+
   useEffect(() => {
-    getMe().then(setUser).catch(() => {});
+    getMe().then((u) => { setUser(u); refreshChats(); }).catch(() => {});
     const pollStatus = () => getSystemStatus().then(setStatus).catch(() => setStatus({ status: "offline" }));
     pollStatus();
     const t1 = setInterval(pollStatus, 15000);
@@ -168,9 +175,11 @@ export default function Dashboard() {
     setLoading(true);
     setActivePage("CHAT");
     try {
-      const reply = await sendMessage(message);
-      setMessages((p) => [...p, { sender: "NOVA", text: reply }]);
-      speak(reply);
+      const data = await sendMessage(message, activeConvId);
+      setMessages((p) => [...p, { sender: "NOVA", text: data.reply }]);
+      if (data.conversation_id) setActiveConvId(data.conversation_id);
+      refreshChats();
+      speak(data.reply);
     } catch {
       const err = "I lost connection to my backend — is it running?";
       setMessages((p) => [...p, { sender: "NOVA", text: err }]);
@@ -204,23 +213,40 @@ export default function Dashboard() {
   };
 
   const newChat = () => {
+    setActiveConvId(null);
     setMessages([{ sender: "NOVA", text: "Ready when you are." }]);
     setActivePage("HOME");
   };
 
-  const selectChat = (title) => {
-    setMessages([{ sender: "NOVA", text: `Resuming: ${title}` }]);
+  const selectChat = async (conv) => {
+    setActiveConvId(conv.id);
+    try {
+      const msgs = await getChatMessages(conv.id);
+      setMessages(msgs.length ? msgs : [{ sender: "NOVA", text: `Resuming: ${conv.title}` }]);
+    } catch {
+      setMessages([{ sender: "NOVA", text: `Resuming: ${conv.title}` }]);
+    }
     setActivePage("CHAT");
   };
 
-  const unpinChat = (title) => {
-    setPinnedChats(pinnedChats.filter((t) => t !== title));
-    pushToast(`Unpinned: ${title}`);
+  const togglePin = async (conv) => {
+    try {
+      await apiPinChat(conv.id, !conv.pinned);
+      refreshChats();
+      pushToast(conv.pinned ? `Unpinned: ${conv.title}` : `Pinned: ${conv.title}`);
+    } catch { pushToast("Pin failed"); }
   };
 
-  const deleteChat = (title) => {
-    setChatHistory(chatHistory.filter((t) => t !== title));
-    pushToast(`Deleted: ${title}`);
+  const removeChat = async (conv) => {
+    try {
+      await apiDeleteChat(conv.id);
+      if (activeConvId === conv.id) {
+        setActiveConvId(null);
+        setMessages([{ sender: "NOVA", text: "Ready when you are." }]);
+      }
+      refreshChats();
+      pushToast(`Deleted: ${conv.title}`);
+    } catch { pushToast("Delete failed"); }
   };
 
   // ---------- derived ----------
@@ -435,12 +461,13 @@ export default function Dashboard() {
                   <div className="sidebar-header">
                     <span>◆ Pinned</span>
                   </div>
-                  {pinnedChats.length === 0 && <div className="sidebar-empty">No pinned chats</div>}
-                  {pinnedChats.map((t) => (
-                    <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
+                  {chats.pinned.length === 0 && <div className="sidebar-empty">No pinned chats</div>}
+                  {chats.pinned.map((c) => (
+                    <div key={c.id} className="sidebar-item" onClick={() => selectChat(c)}>
                       <span className="sidebar-item-icon">◆</span>
-                      <span className="sidebar-item-text">{t}</span>
-                      <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); unpinChat(t); }}>×</button>
+                      <span className="sidebar-item-text">{c.title}</span>
+                      <button className="sidebar-item-action" title="Unpin" onClick={(e) => { e.stopPropagation(); togglePin(c); }}>◇</button>
+                      <button className="sidebar-item-action" title="Delete" onClick={(e) => { e.stopPropagation(); removeChat(c); }}>×</button>
                     </div>
                   ))}
                 </div>
@@ -449,12 +476,13 @@ export default function Dashboard() {
                   <div className="sidebar-header">
                     <span>● Recents</span>
                   </div>
-                  {chatHistory.length === 0 && <div className="sidebar-empty">No recent chats</div>}
-                  {chatHistory.map((t) => (
-                    <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
+                  {chats.recents.length === 0 && <div className="sidebar-empty">No recent chats</div>}
+                  {chats.recents.map((c) => (
+                    <div key={c.id} className="sidebar-item" onClick={() => selectChat(c)}>
                       <span className="sidebar-item-icon">●</span>
-                      <span className="sidebar-item-text">{t}</span>
-                      <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); deleteChat(t); }}>×</button>
+                      <span className="sidebar-item-text">{c.title}</span>
+                      <button className="sidebar-item-action" title="Pin" onClick={(e) => { e.stopPropagation(); togglePin(c); }}>◆</button>
+                      <button className="sidebar-item-action" title="Delete" onClick={(e) => { e.stopPropagation(); removeChat(c); }}>×</button>
                     </div>
                   ))}
                 </div>

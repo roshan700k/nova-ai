@@ -6,7 +6,17 @@ from fastapi import Request
 
 from pydantic import BaseModel, Field
 
-from database.database import create_table
+from database.database import (
+    create_table,
+    create_conversation,
+    list_conversations,
+    get_conversation,
+    get_messages,
+    add_message,
+    set_conversation_title,
+    set_conversation_pinned,
+    delete_conversation,
+)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from brain.brain import AstraBrain
@@ -49,6 +59,7 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str = Field(default="", max_length=4000)
+    conversation_id: int | None = None
 
 
 @app.get("/")
@@ -64,12 +75,67 @@ def chat(data: ChatRequest, request: Request):
     user = current_user(request)
     user_id = user["id"] if user else None
 
+    # Resolve or create conversation
+    conv_id = data.conversation_id
+    conv = get_conversation(conv_id, user_id) if conv_id else None
+    if conv_id and conv is None:
+        conv_id = None  # stale/foreign id -> start fresh
+    if conv_id is None:
+        conv_id = create_conversation(user_id)
+
+    add_message(conv_id, "user", data.message)
+    set_conversation_title(conv_id, data.message[:40])  # only applies while title is 'New chat'
+
     reply = brain.think(data.message, user_id=user_id)
+    add_message(conv_id, "nova", reply)
 
     return {
         "reply": reply,
         "user": user["name"] if user else None,
+        "conversation_id": conv_id,
     }
+
+
+# ---------- chat history ----------
+
+@app.get("/chats")
+def chats(request: Request):
+    user = current_user(request)
+    user_id = user["id"] if user else None
+    pinned = [c for c in list_conversations(user_id) if c["pinned"]]
+    recents = [c for c in list_conversations(user_id) if not c["pinned"]]
+    return {"pinned": pinned, "recents": recents}
+
+
+@app.get("/chats/{conv_id}/messages")
+def chat_messages(conv_id: int, request: Request):
+    user = current_user(request)
+    user_id = user["id"] if user else None
+    if get_conversation(conv_id, user_id) is None:
+        return {"error": "not found"}
+    return {"messages": get_messages(conv_id)}
+
+
+class PinRequest(BaseModel):
+    pinned: bool = False
+
+
+@app.put("/chats/{conv_id}/pin")
+def pin_chat(conv_id: int, data: PinRequest, request: Request):
+    user = current_user(request)
+    user_id = user["id"] if user else None
+    if get_conversation(conv_id, user_id) is None:
+        return {"error": "not found"}
+    set_conversation_pinned(conv_id, user_id, data.pinned)
+    return {"ok": True}
+
+
+@app.delete("/chats/{conv_id}")
+def remove_chat(conv_id: int, request: Request):
+    user = current_user(request)
+    user_id = user["id"] if user else None
+    delete_conversation(conv_id, user_id)
+    return {"ok": True}
 
 
 @app.get("/notifications")
