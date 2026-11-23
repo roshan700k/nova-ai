@@ -10,16 +10,12 @@ import {
 } from "../api/chatApi";
 import AdminPanel from "./AdminPanel";
 
-const MENU = [
-  ["◆", "HOME"],
-  ["▣", "MEMORY"],
-  ["◇", "TASKS"],
-  ["◈", "AI TOOLS"],
-  ["▧", "MEDIA"],
-  ["□", "CALENDAR"],
-  ["▤", "NOTES"],
-  ["◎", "SETTINGS"],
-  ["⬡", "ADMIN"],
+const PROFILE_MENU = [
+  ["▣", "Memory", "MEMORY"],
+  ["▤", "Workspace", "WORKSPACE"],
+  ["◈", "AI Tools", "AI TOOLS"],
+  ["▧", "Media", "MEDIA"],
+  ["◎", "Settings", "SETTINGS"],
 ];
 
 export default function Dashboard() {
@@ -39,6 +35,8 @@ export default function Dashboard() {
   const [chatHistory, setChatHistory] = useState(["Plan my day", "Write code", "Research topic"]);
   const [pinnedChats, setPinnedChats] = useState(["Daily brief", "Project ideas"]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const recognitionRef = useRef(null);
   const chatEndRef = useRef(null);
@@ -239,11 +237,9 @@ export default function Dashboard() {
     HOME: "Dashboard",
     CHAT: "Chat",
     MEMORY: "Memory",
-    TASKS: "Tasks",
+    WORKSPACE: "Workspace",
     "AI TOOLS": "AI Tools",
     MEDIA: "Media",
-    CALENDAR: "Calendar",
-    NOTES: "Notes",
     SETTINGS: "Settings",
     ADMIN: "Admin Panel",
   }[activePage];
@@ -261,11 +257,9 @@ export default function Dashboard() {
       HOME: "Your AI assistant is online and ready.",
       CHAT: "Full conversation view.",
       MEMORY: "Everything NOVA remembers for you.",
-      TASKS: "Reminders and to-dos — coming soon.",
+      WORKSPACE: "Tasks, notes and calendar — coming soon.",
       "AI TOOLS": "Quick tools — coming soon.",
       MEDIA: "Videos and media — coming soon.",
-      CALENDAR: "Schedule view — coming soon.",
-      NOTES: "Quick notes — coming soon.",
       SETTINGS: "System health and account.",
     }[activePage];
   }
@@ -434,61 +428,91 @@ export default function Dashboard() {
             {!sidebarCollapsed && <span>New chat</span>}
           </button>
 
-          {!sidebarCollapsed && (
-            <>
-              <div className="sidebar-section">
-                <div className="sidebar-header">
-                  <span>◆ Pinned</span>
-                </div>
-                {pinnedChats.length === 0 && <div className="sidebar-empty">No pinned chats</div>}
-                {pinnedChats.map((t) => (
-                  <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
-                    <span className="sidebar-item-icon">◆</span>
-                    <span className="sidebar-item-text">{t}</span>
-                    <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); unpinChat(t); }}>×</button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="sidebar-section">
-                <div className="sidebar-header">
-                  <span>● Recents</span>
-                </div>
-                {chatHistory.length === 0 && <div className="sidebar-empty">No recent chats</div>}
-                {chatHistory.map((t) => (
-                  <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
-                    <span className="sidebar-item-icon">●</span>
-                    <span className="sidebar-item-text">{t}</span>
-                    <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); deleteChat(t); }}>×</button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="sidebar-divider" />
-            </>
-          )}
-
-          {MENU.map(([icon, label]) => (
-            <div
-              key={label}
-              className={"nav-item " + ((activePage === label || (label === "HOME" && activePage === "CHAT")) ? "active" : "")}
-              onClick={() => setActivePage(label)}
-              title={label}
-            >
-              <span className="nav-icon">{icon}</span>
-              {!sidebarCollapsed && <span className="nav-label">{label}</span>}
-            </div>
-          ))}
-
-          <div className="profile">
-            <div className="profile-avatar">{user ? user.name[0].toUpperCase() : "◆"}</div>
+          <div className="sidebar-history">
             {!sidebarCollapsed && (
               <>
-                <div className="profile-name">{user ? user.name : "Guest"}</div>
-                <div className="profile-plan">Free</div>
-                <div className="profile-status">● {online ? "NOVA READY" : "NOVA OFFLINE"}</div>
+                <div className="sidebar-section">
+                  <div className="sidebar-header">
+                    <span>◆ Pinned</span>
+                  </div>
+                  {pinnedChats.length === 0 && <div className="sidebar-empty">No pinned chats</div>}
+                  {pinnedChats.map((t) => (
+                    <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
+                      <span className="sidebar-item-icon">◆</span>
+                      <span className="sidebar-item-text">{t}</span>
+                      <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); unpinChat(t); }}>×</button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="sidebar-section">
+                  <div className="sidebar-header">
+                    <span>● Recents</span>
+                  </div>
+                  {chatHistory.length === 0 && <div className="sidebar-empty">No recent chats</div>}
+                  {chatHistory.map((t) => (
+                    <div key={t} className="sidebar-item" onClick={() => selectChat(t)}>
+                      <span className="sidebar-item-icon">●</span>
+                      <span className="sidebar-item-text">{t}</span>
+                      <button className="sidebar-item-action" onClick={(e) => { e.stopPropagation(); deleteChat(t); }}>×</button>
+                    </div>
+                  ))}
+                </div>
               </>
             )}
+          </div>
+
+          <div className="profile-wrap">
+            {profileMenuOpen && (
+              <>
+                <div className="menu-overlay" onClick={() => setProfileMenuOpen(false)} />
+                <div className="profile-menu">
+                  {PROFILE_MENU.map(([icon, label, page]) => (
+                    <div
+                      key={page}
+                      className={"profile-menu-item " + (activePage === page ? "active" : "")}
+                      onClick={() => { setActivePage(page); setProfileMenuOpen(false); }}
+                    >
+                      <span className="nav-icon">{icon}</span>
+                      <span>{label}</span>
+                    </div>
+                  ))}
+                  {user?.role === "admin" && (
+                    <div
+                      className={"profile-menu-item " + (activePage === "ADMIN" ? "active" : "")}
+                      onClick={() => { setActivePage("ADMIN"); setProfileMenuOpen(false); }}
+                    >
+                      <span className="nav-icon">⬡</span>
+                      <span>Admin Panel</span>
+                    </div>
+                  )}
+                  <div className="profile-menu-divider" />
+                  <div
+                    className="profile-menu-item"
+                    onClick={() => { profileMenuOpen && setProfileMenuOpen(false); user ? handleLogout() : handleLogin(); }}
+                  >
+                    <span className="nav-icon">{user ? "◻" : "◉"}</span>
+                    <span>{user ? "Log out" : "Sign in"}</span>
+                  </div>
+                </div>
+              </>
+            )}
+            <div
+              className="profile"
+              onClick={() => {
+                if (sidebarCollapsed) setSidebarCollapsed(false);
+                setProfileMenuOpen(!profileMenuOpen);
+              }}
+            >
+              <div className="profile-avatar">{user ? user.name[0].toUpperCase() : "◆"}</div>
+              {!sidebarCollapsed && (
+                <>
+                  <div className="profile-name">{user ? user.name : "Guest"}</div>
+                  <div className="profile-plan">Free</div>
+                  <div className="profile-status">● {online ? "NOVA READY" : "NOVA OFFLINE"}</div>
+                </>
+              )}
+            </div>
           </div>
         </aside>
 
@@ -504,7 +528,7 @@ export default function Dashboard() {
           {activePage === "MEMORY" && renderMemory()}
           {activePage === "SETTINGS" && renderSettings()}
           {activePage === "ADMIN" && <AdminPanel />}
-          {["TASKS", "CALENDAR", "NOTES", "MEDIA", "AI TOOLS"].includes(activePage) && renderComingSoon()}
+          {["WORKSPACE", "AI TOOLS", "MEDIA"].includes(activePage) && renderComingSoon()}
         </main>
       </div>
 
@@ -519,6 +543,31 @@ export default function Dashboard() {
       )}
 
       <div className="chat-bar">
+        <div className="chat-menu-wrap">
+          <button
+            className="chat-menu-btn"
+            onClick={() => setChatMenuOpen(!chatMenuOpen)}
+            title="Tools"
+          >
+            ＋
+          </button>
+          {chatMenuOpen && (
+            <>
+              <div className="menu-overlay" onClick={() => setChatMenuOpen(false)} />
+              <div className="chat-menu">
+                <div className="profile-menu-item" onClick={() => { setActivePage("AI TOOLS"); setChatMenuOpen(false); }}>
+                  <span className="nav-icon">◈</span><span>AI Tools</span>
+                </div>
+                <div className="profile-menu-item" onClick={() => { setActivePage("MEDIA"); setChatMenuOpen(false); }}>
+                  <span className="nav-icon">▧</span><span>Media</span>
+                </div>
+                <div className="profile-menu-item" onClick={() => { runQuickAction("Search the web for me"); setChatMenuOpen(false); }}>
+                  <span className="nav-icon">◉</span><span>Search the web</span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
         <input
           className="chat-input"
           value={input}
@@ -677,6 +726,7 @@ button { outline: none; }
 .new-chat-btn:hover::before { transform: translateX(100%); }
 .new-chat-btn:hover { background: rgba(255,255,255,.08); border-color: rgba(139,92,246,.4); }
 .new-chat-icon { font-size: 16px; }
+.sidebar-history { flex: 1; overflow-y: auto; min-height: 0; padding-right: 2px; }
 .sidebar-section { margin-bottom: 18px; }
 .sidebar-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -713,11 +763,35 @@ button { outline: none; }
 }
 .nav-icon { font-size: 15px; width: 20px; text-align: center; opacity: .8; }
 .nav-item.active .nav-icon { opacity: 1; color: #a78bfa; }
+.profile-wrap { position: relative; margin-top: auto; }
 .profile {
-  margin-top: auto; padding: 14px;
+  padding: 14px;
   border: 1px solid rgba(255,255,255,.08); border-radius: 14px;
   background: rgba(255,255,255,.03); transition: transform .2s, box-shadow .2s;
+  cursor: pointer;
 }
+.profile-menu, .chat-menu {
+  position: absolute; bottom: calc(100% + 8px); left: 0; min-width: 180px;
+  background: #14141c; border: 1px solid rgba(255,255,255,.1); border-radius: 12px;
+  padding: 6px; z-index: 60; box-shadow: 0 12px 32px rgba(0,0,0,.5);
+  animation: fade-in-page .15s ease-out;
+}
+.chat-menu { bottom: auto; top: calc(100% + 8px); left: 0; }
+.profile-menu-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  border-radius: 8px; color: #9ca3af; font-size: 13px; cursor: pointer; transition: .12s;
+}
+.profile-menu-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+.profile-menu-item.active { color: #a78bfa; }
+.profile-menu-divider { height: 1px; background: rgba(255,255,255,.07); margin: 5px 8px; }
+.menu-overlay { position: fixed; inset: 0; z-index: 55; }
+.chat-menu-wrap { position: relative; flex-shrink: 0; }
+.chat-menu-btn {
+  width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04); color: #9ca3af; font-size: 18px; cursor: pointer;
+  display: grid; place-items: center; transition: .15s; flex-shrink: 0;
+}
+.chat-menu-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
 .profile:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.3); }
 .profile-avatar {
   width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
