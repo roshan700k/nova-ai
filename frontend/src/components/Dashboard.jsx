@@ -12,7 +12,6 @@ import AdminPanel from "./AdminPanel";
 
 const MENU = [
   ["◆", "HOME"],
-  ["◉", "CHAT"],
   ["▣", "MEMORY"],
   ["◇", "TASKS"],
   ["◈", "AI TOOLS"],
@@ -169,6 +168,7 @@ export default function Dashboard() {
     setMessages((p) => [...p, { sender: "You", text: message }]);
     setInput("");
     setLoading(true);
+    setActivePage("CHAT");
     try {
       const reply = await sendMessage(message);
       setMessages((p) => [...p, { sender: "NOVA", text: reply }]);
@@ -207,7 +207,7 @@ export default function Dashboard() {
 
   const newChat = () => {
     setMessages([{ sender: "NOVA", text: "Ready when you are." }]);
-    setActivePage("CHAT");
+    setActivePage("HOME");
   };
 
   const selectChat = (title) => {
@@ -471,7 +471,7 @@ export default function Dashboard() {
           {MENU.map(([icon, label]) => (
             <div
               key={label}
-              className={"nav-item " + (activePage === label ? "active" : "")}
+              className={"nav-item " + ((activePage === label || (label === "HOME" && activePage === "CHAT")) ? "active" : "")}
               onClick={() => setActivePage(label)}
               title={label}
             >
