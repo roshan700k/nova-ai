@@ -21,8 +21,13 @@ import AdminPanel from "./AdminPanel";
 
 // ---------- lightweight markdown renderer ----------
 function inlineFormat(s, keyPrefix) {
-  return s.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((seg, i) => {
+  return s.split(/(\[[^\]]+\]\(https?:\/\/[^)\s]+\)|\*\*[^*]+\*\*|`[^`]+`|https?:\/\/[^\s)]+)/g).map((seg, i) => {
     const key = `${keyPrefix}-${i}`;
+    const mdLink = seg.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
+    if (mdLink)
+      return <a key={key} className="msg-link" href={mdLink[2]} target="_blank" rel="noopener noreferrer">{mdLink[1]}</a>;
+    if (/^https?:\/\/[^\s)]+$/.test(seg))
+      return <a key={key} className="msg-link" href={seg} target="_blank" rel="noopener noreferrer">{seg}</a>;
     if (seg.startsWith("**") && seg.endsWith("**") && seg.length > 4)
       return <strong key={key}>{seg.slice(2, -2)}</strong>;
     if (seg.startsWith("`") && seg.endsWith("`") && seg.length > 2)
@@ -1255,6 +1260,8 @@ button { outline: none; }
   background: rgba(139,92,246,.15); border: 1px solid rgba(139,92,246,.25);
   border-radius: 5px; padding: 1px 6px; font-family: 'Consolas', monospace; font-size: 12.5px;
 }
+.msg-link { color: #a78bfa; text-decoration: underline; word-break: break-all; }
+.msg-link:hover { color: #c4b5fd; }
 .msg-copy {
   position: absolute; top: -4px; right: 0; opacity: 0;
   background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
