@@ -31,6 +31,7 @@ from api.monitor import router as monitor_router
 from api.tasks import router as tasks_router
 from api.research import router as research_router
 from api.automation import router as automation_router
+from api.agent import router as agent_router
 
 app = FastAPI()
 
@@ -42,6 +43,7 @@ app.include_router(monitor_router)
 app.include_router(tasks_router)
 app.include_router(research_router)
 app.include_router(automation_router)
+app.include_router(agent_router)
 
 create_table()
 brain = AstraBrain()
@@ -115,6 +117,34 @@ def chat(data: ChatRequest, request: Request):
                 "user": user["name"] if user else None,
                 "conversation_id": conv_id,
             }
+
+    # PC agent command: "pc open notepad", "my pc youtube lofi", "computer files"
+    if low.startswith(("pc ", "my pc ", "computer ", "device ", "laptop ")):
+        from api.agent import parse_pc_command
+        from database.database import get_device, enqueue_command
+        action, args = parse_pc_command(data.message)
+        add_message(conv_id, "user", data.message)
+        set_conversation_title(conv_id, data.message[:40])
+        if user_id is None:
+            reply = "PC agent needs you to sign in first — your commands run on your own device."
+        elif get_device(user_id) is None:
+            reply = ("No PC is linked yet. Open the ＋ menu → 'PC Agent' to get your "
+                     "agent token, then run agent/nova_agent.py on your computer.")
+        elif action == "unknown":
+            reply = ("I can do this on your PC: **open &lt;app&gt;**, **open &lt;website&gt;**, "
+                     "**youtube &lt;query&gt;**, **google &lt;query&gt;**, "
+                     "**files in &lt;downloads/documents/desktop&gt;**, **read &lt;file&gt;**, "
+                     "**status**. Try: \"pc open notepad\"")
+        else:
+            cid = enqueue_command(user_id, action, args)
+            reply = (f"📟 Sent to your PC — I'll report back as soon as it's done.\n"
+                     f"_(command #{cid}: {action})_")
+        add_message(conv_id, "nova", reply)
+        return {
+            "reply": reply,
+            "user": user["name"] if user else None,
+            "conversation_id": conv_id,
+        }
 
     # Automation command: "automate X" / "step by step X" / "plan and do X"
     for prefix in ("automate ", "automation ", "step by step ", "plan and do ", "run plan "):
@@ -228,10 +258,17 @@ def clear_memory(request: Request):
 
 
 @app.get("/notifications")
-def notifications():
-    """Proactive messages NOVA starts on her own (check-ins, self-issues)."""
+def notifications(request: Request):
+    """Proactive messages NOVA starts on her own (check-ins, self-issues, agent results)."""
     msgs = list(brain.outbox)
     brain.outbox.clear()
+    user = current_user(request)
+    if user:
+        try:
+            from api.agent import agent_notifications
+            msgs += agent_notifications(user["id"])
+        except Exception:
+            pass
     return {"messages": msgs}
 
 

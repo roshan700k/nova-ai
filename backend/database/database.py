@@ -85,6 +85,30 @@ def create_table():
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS agent_devices(
+        user_id INTEGER PRIMARY KEY,
+        token TEXT NOT NULL,
+        name TEXT DEFAULT 'My PC',
+        last_seen TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS agent_commands(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        args TEXT DEFAULT '{}',
+        status TEXT DEFAULT 'pending',
+        result TEXT DEFAULT '',
+        notified INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        finished_at TEXT
+    )
+    """)
+
     # Migrate existing users table if needed
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
@@ -329,3 +353,147 @@ def delete_task(task_id, user_id):
     cursor.execute("DELETE FROM tasks WHERE id = ? AND user_id IS ?", (task_id, user_id))
     conn.commit()
     conn.close()
+
+
+# ---------- local agent (PC control) ----------
+
+def get_device(user_id):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT user_id, token, name, last_seen FROM agent_devices WHERE user_id = ?",
+        (user_id,),
+    )
+    r = cursor.fetchone()
+    conn.close()
+    if not r:
+        return None
+    return {"user_id": r[0], "token": r[1], "name": r[2], "last_seen": r[3]}
+
+
+def register_device(user_id, name="My PC"):
+    import secrets
+    token = secrets.token_hex(24)
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO agent_devices (user_id, token, name) VALUES (?, ?, ?) "
+        "ON CONFLICT(user_id) DO UPDATE SET token = excluded.token, name = excluded.name",
+        (user_id, token, name[:60]),
+    )
+    conn.commit()
+    conn.close()
+    return token
+
+
+def device_by_token(token):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM agent_devices WHERE token = ?", (token,))
+    r = cursor.fetchone()
+    conn.close()
+    return r[0] if r else None
+
+
+def touch_device(user_id):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE agent_devices SET last_seen = datetime('now') WHERE user_id = ?",
+        (user_id,),
+    )
+    conn.commit()
+    conn.close()
+
+
+def enqueue_command(user_id, action, args=None):
+    import json as _json
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO agent_commands (user_id, action, args) VALUES (?, ?, ?)",
+        (user_id, action[:40], _json.dumps(args or {})[:2000]),
+    )
+    cid = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return cid
+
+
+def pending_commands(user_id):
+    """Return pending commands and mark them 'sent' so they aren't repeated."""
+    import json as _json
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, action, args FROM agent_commands "
+        "WHERE user_id = ? AND status = 'pending' ORDER BY id LIMIT 10",
+        (user_id,),
+    )
+    rows = cursor.fetchall()
+    if rows:
+        ids = [r[0] for r in rows]
+        cursor.execute(
+            f"UPDATE agent_commands SET status = 'sent' WHERE id IN ({','.join('?' * len(ids))})",
+            ids,
+        )
+        conn.commit()
+    conn.close()
+    out = []
+    for r in rows:
+        try:
+            args = _json.loads(r[2] or "{}")
+        except Exception:
+            args = {}
+        out.append({"id": r[0], "action": r[1], "args": args})
+    return out
+
+
+def command_result(user_id, command_id, ok, output):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE agent_commands SET status = ?, result = ?, finished_at = datetime('now') "
+        "WHERE id = ? AND user_id = ?",
+        ("done" if ok else "failed", str(output)[:4000], command_id, user_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_command(command_id, user_id):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, action, args, status, result, created_at FROM agent_commands "
+        "WHERE id = ? AND user_id = ?",
+        (command_id, user_id),
+    )
+    r = cursor.fetchone()
+    conn.close()
+    if not r:
+        return None
+    return {"id": r[0], "action": r[1], "args": r[2], "status": r[3],
+            "result": r[4], "created_at": r[5]}
+
+
+def unnotified_results(user_id):
+    """Finished commands not yet surfaced to the user via notifications."""
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, action, status, result FROM agent_commands "
+        "WHERE user_id = ? AND status IN ('done','failed') AND notified = 0 "
+        "ORDER BY id LIMIT 10",
+        (user_id,),
+    )
+    rows = cursor.fetchall()
+    if rows:
+        ids = [r[0] for r in rows]
+        cursor.execute(
+            f"UPDATE agent_commands SET notified = 1 WHERE id IN ({','.join('?' * len(ids))})",
+            ids,
+        )
+        conn.commit()
+    conn.close()
+    return [{"id": r[0], "action": r[1], "status": r[2], "result": r[3]} for r in rows]

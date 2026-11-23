@@ -21,6 +21,8 @@ import {
   addTask,
   updateTask,
   deleteTask,
+  getAgentStatus,
+  registerAgent,
 } from "../api/chatApi";
 import AdminPanel from "./AdminPanel";
 import HoloAvatar from "./HoloAvatar";
@@ -389,6 +391,30 @@ export default function Dashboard() {
   const runQuickAction = (text) => {
     setInput(text);
     handleSend(text);
+  };
+
+  const handleAgent = async () => {
+    setChatMenuOpen(false);
+    try {
+      const st = await getAgentStatus();
+      if (st.linked && !confirm("PC already linked. Re-generate token? (the old one stops working)")) {
+        pushToast(`PC Agent: ${st.online ? "Online" : "Offline"} (${st.name})`);
+        return;
+      }
+      const reg = await registerAgent();
+      const token = reg.token;
+      const shown = prompt(
+        "PC Agent token — paste this into agent/config.json on your PC:\n\n" +
+        token + "\n\nThen run: python agent/nova_agent.py",
+        token
+      );
+      if (shown !== null) {
+        navigator.clipboard?.writeText(token).catch(() => {});
+        pushToast("Token copied — paste it in agent/config.json and run nova_agent.py");
+      }
+    } catch (e) {
+      pushToast(e?.response?.status === 401 ? "Sign in first to link a PC" : "PC Agent setup failed");
+    }
   };
 
   const handleLogin = async () => {
@@ -1002,6 +1028,9 @@ export default function Dashboard() {
                 </div>
                 <div className="profile-menu-item" onClick={() => { runQuickAction("Search the web for me"); setChatMenuOpen(false); }}>
                   <span className="nav-icon">◉</span><span>Search the web</span>
+                </div>
+                <div className="profile-menu-item" onClick={handleAgent}>
+                  <span className="nav-icon">▣</span><span>PC Agent — control this computer</span>
                 </div>
                 <div className="profile-menu-divider" />
                 <div className={"profile-menu-item " + (wakeMode ? "active" : "")} onClick={() => { toggleWake(); setChatMenuOpen(false); }}>

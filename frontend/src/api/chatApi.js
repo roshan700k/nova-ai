@@ -154,3 +154,14 @@ export async function runResearch(query) {
     const response = await api.post(`/research`, { query });
     return response.data;
 }
+
+// PC Agent
+export async function getAgentStatus() {
+    const response = await api.get(`/agent/status`);
+    return response.data;
+}
+
+export async function registerAgent(name = "My PC") {
+    const response = await api.post(`/agent/register`, { name });
+    return response.data;
+}
