@@ -260,6 +260,11 @@ export default function Dashboard() {
       if (data.conversation_id) setActiveConvId(data.conversation_id);
       refreshChats();
       speak(data.reply);
+      // Auto-open links (e.g. YouTube) while user-gesture activation may still be valid
+      const linkMatch = String(data.reply).match(/https?:\/\/[^\s)]+/);
+      if (linkMatch && /youtube\.com|youtu\.be/.test(linkMatch[0])) {
+        try { window.open(linkMatch[0], "_blank", "noopener"); } catch { /* popup blocked */ }
+      }
     } catch (err) {
       if (err?.name === "CanceledError" || err?.name === "AbortError" || err?.code === "ERR_CANCELED") {
         setMessages((p) => [...p, { sender: "NOVA", text: "⏹ Stopped." }]);
