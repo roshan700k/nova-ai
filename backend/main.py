@@ -118,23 +118,55 @@ def chat(data: ChatRequest, request: Request):
                 "conversation_id": conv_id,
             }
 
-    # PC agent command: "pc open notepad", "my pc youtube lofi", "computer files"
-    if low.startswith(("pc ", "my pc ", "computer ", "device ", "laptop ")):
-        from api.agent import parse_pc_command
-        from database.database import get_device, enqueue_command
-        action, args = parse_pc_command(data.message)
+    # Device commands: "pc open notepad" or loose Hinglish "whatsapp kholo",
+    # "bittu ko msg karo" — routed to the linked PC agent when present.
+    from api.agent import parse_pc_command, parse_loose_command
+    from database.database import get_device, enqueue_command
+    is_pc = low.startswith(("pc ", "my pc ", "computer ", "device ", "laptop "))
+    action, args = parse_pc_command(data.message) if is_pc else (None, None)
+    if not is_pc:
+        action, args = parse_loose_command(data.message)
+        is_pc = action is not None
+    if is_pc:
         add_message(conv_id, "user", data.message)
         set_conversation_title(conv_id, data.message[:40])
         if user_id is None:
             reply = "PC agent needs you to sign in first — your commands run on your own device."
         elif get_device(user_id) is None:
-            reply = ("No PC is linked yet. Open the ＋ menu → 'PC Agent' to get your "
-                     "agent token, then run agent/nova_agent.py on your computer.")
-        elif action == "unknown":
+            reply = ("No PC is linked yet. Sign in, then open the ＋ menu → 'PC Agent' "
+                     "to get your agent token and run agent/nova_agent.py on your computer.")
+        elif action in (None, "unknown"):
             reply = ("I can do this on your PC: **open &lt;app&gt;**, **open &lt;website&gt;**, "
                      "**youtube &lt;query&gt;**, **google &lt;query&gt;**, "
                      "**files in &lt;downloads/documents/desktop&gt;**, **read &lt;file&gt;**, "
-                     "**status**. Try: \"pc open notepad\"")
+                     "**&lt;name&gt; ko &lt;msg&gt; msg karo** (WhatsApp), **status**. "
+                     "Try: \"pc open notepad\"")
+        elif action == "message":
+            import re as _re
+            from urllib.parse import quote as _quote
+            contact = args.get("contact", "")
+            msg_text = args.get("text", "")
+            ns = f"u{user_id}"
+            mems = brain.memory.all(ns)
+            number = None
+            cname = contact.lower()
+            for k, v in mems.items():
+                kl = k.lower()
+                if cname in kl or kl in cname or kl.split("_")[-1] in cname:
+                    digits = _re.sub(r"\D", "", str(v))
+                    if len(digits) >= 10:
+                        number = digits[-12:] if len(digits) > 12 else digits
+                        break
+            if number:
+                url = f"https://wa.me/{number}?text={_quote(msg_text)}"
+                cid = enqueue_command(user_id, "open_url", {"url": url})
+                reply = (f"📟 Opening WhatsApp chat with **{contact}** — your message "
+                         f"\"{msg_text}\" will be pre-filled, just press send.\n"
+                         f"_(command #{cid})_")
+            else:
+                reply = (f"**{contact}** ka number nahi pata. Pehle bolo: "
+                         f"\"remember {contact} number is +91...\" — phir main WhatsApp pe "
+                         "message ready kar dungi.")
         else:
             cid = enqueue_command(user_id, action, args)
             reply = (f"📟 Sent to your PC — I'll report back as soon as it's done.\n"

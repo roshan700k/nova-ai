@@ -51,6 +51,10 @@ APPS = {
     "vs code": ["code"],
     "code": ["code"],
     "spotify": ["spotify"],
+    "whatsapp": ["whatsapp", "WhatsApp.exe"],
+    "telegram": ["telegram", "Telegram.exe"],
+    "discord": ["discord", "Discord.exe"],
+    "camera": ["microsoft.windows.camera:", "camera"],
     "settings": ["ms-settings:"],
     "control panel": ["control.exe"],
 }
@@ -111,7 +115,10 @@ def act_open_app(args):
     for cmd in candidates:
         try:
             if os.name == "nt":
-                subprocess.Popen(cmd, shell=True)
+                if ":" in cmd:  # URI scheme like ms-settings:
+                    os.startfile(cmd)
+                else:
+                    subprocess.Popen(cmd, shell=True)
             else:
                 subprocess.Popen([cmd])
             return f"Opened {name}"

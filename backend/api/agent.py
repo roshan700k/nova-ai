@@ -176,6 +176,77 @@ def parse_pc_command(text: str):
     return "unknown", {}
 
 
+QUESTION_START = re.compile(
+    r"^(kya|kyu|kyon|kaise|kab|kahan|kitna|kitni|who|what|why|how|when|"
+    r"where|which|can|could|should|would|do|does|did|is|are|was|were|"
+    r"mere|mera|meri|mujhe|hum|aap|tum)\b"
+)
+
+# Common site names -> direct URLs (more reliable than guessing apps)
+WEB_TARGETS = {
+    "youtube": "https://www.youtube.com",
+    "yt": "https://www.youtube.com",
+    "gmail": "https://mail.google.com",
+    "google": "https://www.google.com",
+    "whatsapp": "https://web.whatsapp.com",
+    "instagram": "https://www.instagram.com",
+    "facebook": "https://www.facebook.com",
+    "twitter": "https://x.com",
+    "x": "https://x.com",
+    "chatgpt": "https://chatgpt.com",
+    "github": "https://github.com",
+    "netflix": "https://www.netflix.com",
+    "spotify": "https://open.spotify.com",
+    "maps": "https://maps.google.com",
+    "calendar": "https://calendar.google.com",
+    "drive": "https://drive.google.com",
+}
+
+
+def parse_loose_command(text: str):
+    """Hinglish commands without the 'pc' prefix:
+    'whatsapp kholo', 'notepad open karo', 'bittu ko hii msg karo'.
+    Returns (action, args) or (None, None)."""
+    t = re.sub(r"\s+", " ", text.strip().lower())
+    t = re.sub(r"^(please|pls|bhai|bro|yaar|oye|hey|ok|okay)[,\s]+", "", t)
+
+    # "X ko Y msg/message bhejo/likho" -> messaging intent
+    m = re.match(
+        r"^(.+?)\s+ko\s+(.+?)\s*(?:ka|ki|ka\s+unko|unhe)?\s*"
+        r"(?:msg|message|whatsapp|wa|sms|text|pm)\s*"
+        r"(?:karo|bhej(?:o|do)?|likh(?:o|do)?|send)?\s*$", t)
+    if m:
+        contact, msg = m.group(1).strip(), m.group(2).strip()
+        # compound commands: "whatsapp kholo or bittu ko msg" -> keep last part
+        contact = re.split(r"\s+(?:or|aur|and|ya)\s+", contact)[-1].strip()
+        contact = re.sub(r"\s+(?:khol(?:o|do)?|open(?:\s+karo)?|chalu|app)\b.*$", "", contact).strip()
+        if contact and msg and not QUESTION_START.match(contact):
+            return "message", {"contact": contact, "text": msg}
+
+    # "X kholo / X open karo / X chalu karo / X launch karo"
+    m = re.match(
+        r"^(.+?)\s+(?:ko\s+)?(?:khol(?:o|do)?|open(?:\s+karo)?|"
+        r"chalu(?:\s+karo)?|launch(?:\s+karo)?)\s*(?:karo|do|de)?\s*$", t)
+    if m:
+        target = m.group(1).strip()
+        target = re.sub(r"\s+(?:app|application|wala|wala\s+app)$", "", target)
+        if target and not QUESTION_START.match(target) and len(target.split()) <= 4:
+            # websites / urls -> open_url, otherwise app name
+            if re.match(r"^(https?://|www\.|[\w-]+\.(com|org|net|in|io|dev|app)\b)", target):
+                url = target if target.startswith("http") else f"https://{target}"
+                return "open_url", {"url": url}
+            if re.search(r"\b(site|website|page|link|url)\b", target):
+                q = re.sub(r"\b(site|website|page|link|url|khol|open)\b", "", target)
+                q = re.sub(r"\s+", " ", q).strip(" ?.!")
+                if q:
+                    return "open_url", {"url": f"https://www.google.com/search?q={q.replace(' ', '+')}"}
+            if target in WEB_TARGETS:
+                return "open_url", {"url": WEB_TARGETS[target]}
+            return "open_app", {"name": target}
+
+    return None, None
+
+
 def agent_notifications(user_id):
     """Drain finished agent results for the notifications feed."""
     out = []
