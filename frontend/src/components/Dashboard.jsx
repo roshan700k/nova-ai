@@ -526,19 +526,16 @@ export default function Dashboard() {
               </>
             )}
             <div
-              className="profile"
+              className="profile profile-clean"
               onClick={() => {
                 if (sidebarCollapsed) setSidebarCollapsed(false);
                 setProfileMenuOpen(!profileMenuOpen);
               }}
+              title={user ? user.name : "Guest"}
             >
               <div className="profile-avatar">{user ? user.name[0].toUpperCase() : "◆"}</div>
               {!sidebarCollapsed && (
-                <>
-                  <div className="profile-name">{user ? user.name : "Guest"}</div>
-                  <div className="profile-plan">Free</div>
-                  <div className="profile-status">● {online ? "NOVA READY" : "NOVA OFFLINE"}</div>
-                </>
+                <div className="profile-name">{user ? user.name : "Guest"}</div>
               )}
             </div>
           </div>
@@ -826,6 +823,9 @@ button { outline: none; }
   margin-bottom: 10px; font-size: 16px; font-weight: 600; color: #fff;
   background: linear-gradient(135deg, #7c3aed, #ec4899);
 }
+.profile-clean { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+.profile-clean .profile-avatar { width: 34px; height: 34px; font-size: 14px; margin-bottom: 0; flex-shrink: 0; }
+.profile-clean .profile-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-name { font-weight: 600; font-size: 13px; }
 .profile-plan { color: #6b7280; font-size: 11px; margin-top: 2px; }
 .profile-status { color: #34d399; font-size: 11px; margin-top: 3px; display: flex; align-items: center; gap: 5px; }
