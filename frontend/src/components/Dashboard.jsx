@@ -115,6 +115,7 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState("");
   const [wakeMode, setWakeMode] = useState(false);
+  const [homeNote, setHomeNote] = useState("");
   const abortRef = useRef(null);
   const wakeRef = useRef(null);
   const handleSendRef = useRef(null);
@@ -213,13 +214,14 @@ export default function Dashboard() {
         const notes = await getNotifications();
         notes.forEach((text) => {
           setMessages((p) => [...p, { sender: "NOVA", text }]);
-          pushToast(text);
+          setHomeNote(text);
+          if (activePage !== "HOME") pushToast(text);
         });
       } catch { /* backend offline */ }
     };
     const t = setInterval(poll, 30000);
     return () => clearInterval(t);
-  }, []);
+  }, [activePage]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -295,6 +297,7 @@ export default function Dashboard() {
     if (!message || loading) return;
     setMessages((p) => [...p, { sender: "You", text: message }]);
     setInput("");
+    setHomeNote("");
     setLoading(true);
     setActivePage("CHAT");
     const ctrl = new AbortController();
@@ -408,6 +411,7 @@ export default function Dashboard() {
 
   const newChat = () => {
     setActiveConvId(null);
+    setHomeNote("");
     setMessages([{ sender: "NOVA", text: "Ready when you are." }]);
     setActivePage("HOME");
     setMobileOpen(false);
@@ -488,17 +492,12 @@ export default function Dashboard() {
   function renderHome() {
     return (
       <div className="home-full">
-        <div className="home-hero">
-          <HoloAvatar
-            size={typeof window !== "undefined" ? Math.min(300, Math.max(180, window.innerWidth * 0.55)) : 280}
-            active={listening || speaking}
-          />
-          <div className="home-status">
-            {listening ? "LISTENING" : speaking ? "SPEAKING" : online ? "READY" : "OFFLINE"}
-          </div>
-          <div className={`voice-state ${listening || speaking ? "active" : ""}`}>
-            {listening ? "Listening..." : speaking ? "Speaking..." : "◆ Voice assistant ready"}
-          </div>
+        <div className="home-title">NOVA</div>
+        <div className="home-status">
+          {listening ? "LISTENING" : speaking ? "SPEAKING" : online ? "READY" : "OFFLINE"}
+        </div>
+        <div className={`voice-state ${listening || speaking ? "active" : ""}`}>
+          {listening ? "Listening..." : speaking ? "Speaking..." : "◆ Voice assistant ready — say 'NOVA ...'"}
         </div>
         <div className="home-quick">
           <button className="quick-chip" onClick={() => runQuickAction("Tell me something interesting")}>◆ Ask NOVA</button>
@@ -943,10 +942,21 @@ export default function Dashboard() {
         </aside>
 
         {/* main */}
-        <main className="main" key={activePage} style={activePage === "SETTINGS" ? { paddingBottom: 48 } : {}}>
+        <main className="main" style={activePage === "SETTINGS" ? { paddingBottom: 48 } : {}}>
+          {["HOME", "CHAT"].includes(activePage) && (
+            <div className={"holo-bg" + (activePage === "CHAT" ? " shrunk" : "")} aria-hidden="true">
+              <HoloAvatar fill active={listening || speaking} />
+            </div>
+          )}
           <div className="welcome">
             <h1>{activePage === "SETTINGS" ? "Settings" : greeting()}</h1>
-            <p>{activePage === "SETTINGS" ? subtitle() : `${pageTitle} — ${subtitle()}`}</p>
+            <p className={activePage === "HOME" && homeNote ? "home-note" : ""}>
+              {activePage === "SETTINGS"
+                ? subtitle()
+                : activePage === "HOME"
+                  ? (homeNote || "Your AI assistant is online and ready.")
+                  : `${pageTitle} — ${subtitle()}`}
+            </p>
           </div>
 
           {activePage === "HOME" && renderHome()}
@@ -1246,17 +1256,43 @@ button { outline: none; }
 
 .main { padding: 32px 36px 200px; min-width: 0; overflow-y: auto; max-width: 1400px; position: relative; z-index: 1; animation: fade-in-page .3s ease-out; }
 @keyframes fade-in-page { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.main > :not(.holo-bg) { position: relative; z-index: 1; }
+
+/* ---------- hologram background stage ---------- */
+.holo-bg {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+  transition: transform .7s cubic-bezier(.4,0,.2,1), opacity .7s ease;
+}
+.holo-bg > div { width: 100%; height: 100%; }
+.holo-bg::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(ellipse 95% 85% at 50% 45%, transparent 30%, rgba(10,10,15,.55) 100%);
+}
+.holo-bg.shrunk {
+  transform: scale(.36) translate(52%, -58%);
+  transform-origin: 82% 12%;
+  opacity: .4;
+}
+.home-note {
+  color: #a78bfa !important; font-style: italic;
+  border-left: 2px solid rgba(139,92,246,.5); padding-left: 10px;
+}
 .welcome h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.5px; background: linear-gradient(135deg, #fff, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .welcome p { margin: 6px 0 0; color: #6b7280; font-size: 14px; }
 
 /* ---------- home full screen ---------- */
 .home-full {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  min-height: calc(100vh - 140px); padding: 20px; gap: 40px;
+  min-height: calc(100vh - 300px); padding: 20px; gap: 26px; text-align: center;
 }
-.home-hero {
-  display: flex; flex-direction: column; align-items: center; gap: 24px;
+.home-title {
+  font-size: 34px; font-weight: 800; letter-spacing: 10px; margin-left: 10px;
+  background: linear-gradient(135deg, #fff 20%, #a78bfa 60%, #22d3ee 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 40px rgba(139,92,246,.35);
+  animation: holo-title 4s ease-in-out infinite;
 }
+@keyframes holo-title { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.25); } }
 .avatar-orb-large {
   width: 320px; height: 320px; border-radius: 50%; display: grid; place-items: center;
   position: relative;

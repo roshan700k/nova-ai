@@ -4,9 +4,15 @@ import * as THREE from "three";
 /**
  * NOVA hologram — rotating wireframe core + particle field.
  * Pure three.js, no extra deps. Respects prefers-reduced-motion.
+ * `fill` makes the canvas stretch to its parent; otherwise `size`x`size`.
  */
-export default function HoloAvatar({ size = 280, active = false }) {
+export default function HoloAvatar({ size = 280, active = false, fill = false }) {
   const mountRef = useRef(null);
+  const activeRef = useRef(active);
+
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -15,11 +21,10 @@ export default function HoloAvatar({ size = 280, active = false }) {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-    camera.position.z = 4.2;
+    camera.position.z = 4.6;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(size, size);
     mount.appendChild(renderer.domElement);
 
     const group = new THREE.Group();
@@ -28,7 +33,7 @@ export default function HoloAvatar({ size = 280, active = false }) {
     // Core: wireframe icosahedron
     const coreGeo = new THREE.IcosahedronGeometry(1.15, 1);
     const coreMat = new THREE.MeshBasicMaterial({
-      color: active ? 0x22d3ee : 0x8b5cf6,
+      color: 0x8b5cf6,
       wireframe: true,
       transparent: true,
       opacity: 0.55,
@@ -39,7 +44,7 @@ export default function HoloAvatar({ size = 280, active = false }) {
     // Inner solid glow sphere
     const innerGeo = new THREE.IcosahedronGeometry(0.55, 2);
     const innerMat = new THREE.MeshBasicMaterial({
-      color: active ? 0x67e8f9 : 0xc084fc,
+      color: 0xc084fc,
       transparent: true,
       opacity: 0.18,
       blending: THREE.AdditiveBlending,
@@ -87,11 +92,30 @@ export default function HoloAvatar({ size = 280, active = false }) {
     scan.rotation.x = Math.PI / 2;
     group.add(scan);
 
+    // Responsive fit: renderer fills mount, camera aspect + group scale track size
+    const fit = () => {
+      const w = mount.clientWidth || size;
+      const h = mount.clientHeight || size;
+      renderer.setSize(w, h);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      const s = Math.min(w, h) / 340;
+      group.scale.setScalar(Math.max(0.4, Math.min(s, 1.6)));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(mount);
+
+    const onColor = new THREE.Color(0x22d3ee);
+    const offColor = new THREE.Color(0x8b5cf6);
+    const tmp = new THREE.Color();
+
     let raf;
     const clock = new THREE.Clock();
     const animate = () => {
       raf = requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
+      const on = activeRef.current;
       if (!reduced) {
         core.rotation.y = t * 0.4;
         core.rotation.x = Math.sin(t * 0.3) * 0.25;
@@ -102,20 +126,19 @@ export default function HoloAvatar({ size = 280, active = false }) {
         scan.rotation.z = t * 0.5;
         group.position.y = Math.sin(t * 0.7) * 0.08;
       }
+      // smooth color shift when listening/speaking
+      tmp.copy(on ? onColor : offColor);
+      coreMat.color.lerp(tmp, 0.08);
+      innerMat.color.lerp(tmp, 0.08);
+      pMat.color.lerp(tmp, 0.08);
+      ringMat.color.lerp(tmp, 0.05);
       renderer.render(scene, camera);
     };
     animate();
 
-    const onResize = () => {
-      renderer.setSize(size, size);
-      camera.aspect = 1;
-      camera.updateProjectionMatrix();
-    };
-    window.addEventListener("resize", onResize);
-
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("resize", onResize);
+      ro.disconnect();
       mount.removeChild(renderer.domElement);
       renderer.dispose();
       coreGeo.dispose(); coreMat.dispose();
@@ -124,12 +147,12 @@ export default function HoloAvatar({ size = 280, active = false }) {
       pGeo.dispose(); pMat.dispose();
       scanGeo.dispose(); scanMat.dispose();
     };
-  }, [size, active]);
+  }, [size]);
 
   return (
     <div
       ref={mountRef}
-      style={{ width: size, height: size, margin: "0 auto" }}
+      style={fill ? { width: "100%", height: "100%" } : { width: size, height: size, margin: "0 auto" }}
       aria-label="NOVA hologram"
     />
   );
