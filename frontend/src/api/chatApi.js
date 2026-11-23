@@ -15,7 +15,7 @@ const API = import.meta.env.VITE_API_URL || (() => {
 // Axios instance with timeout
 const api = axios.create({
   baseURL: API,
-  timeout: 10000,
+  timeout: 90000, // Render free tier cold start can take ~60s
   withCredentials: true,
 });
 
