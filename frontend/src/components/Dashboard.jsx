@@ -16,6 +16,11 @@ import {
   clearMemoryApi,
   clearAllChatsApi,
   API_URL,
+  getSystemMonitor,
+  getTasks,
+  addTask,
+  updateTask,
+  deleteTask,
 } from "../api/chatApi";
 import AdminPanel from "./AdminPanel";
 
@@ -79,6 +84,7 @@ function FormattedText({ text }) {
 const PROFILE_MENU = [
   ["▣", "Memory", "MEMORY"],
   ["▤", "Workspace", "WORKSPACE"],
+  ["◉", "System Monitor", "SYSTEM"],
   ["◈", "AI Tools", "AI TOOLS"],
   ["▧", "Media", "MEDIA"],
   ["◎", "Settings", "SETTINGS"],
@@ -104,6 +110,9 @@ export default function Dashboard() {
   const [prefsSaved, setPrefsSaved] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [monitor, setMonitor] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [newTask, setNewTask] = useState("");
   const abortRef = useRef(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -147,7 +156,36 @@ export default function Dashboard() {
       getSettings().then(setPrefs).catch(() => {});
       getMemories().then((d) => setMemories(d.memories || {})).catch(() => {});
     }
+    if (activePage === "SYSTEM") {
+      const load = () => getSystemMonitor().then(setMonitor).catch(() => setMonitor(null));
+      load();
+      const t = setInterval(load, 3000);
+      return () => clearInterval(t);
+    }
+    if (activePage === "WORKSPACE") {
+      refreshTasks();
+    }
   }, [activePage]);
+
+  const refreshTasks = () => getTasks().then(setTasks).catch(() => {});
+
+  const submitTask = async () => {
+    const title = newTask.trim();
+    if (!title) return;
+    setNewTask("");
+    await addTask(title).catch(() => {});
+    refreshTasks();
+  };
+
+  const toggleTask = async (t) => {
+    await updateTask(t.id, { done: !t.done }).catch(() => {});
+    refreshTasks();
+  };
+
+  const removeTask = async (t) => {
+    await deleteTask(t.id).catch(() => {});
+    refreshTasks();
+  };
 
   const savePref = (key, value) => {
     setPrefs((p) => ({ ...p, [key]: value }));
@@ -362,6 +400,7 @@ export default function Dashboard() {
     CHAT: "Chat",
     MEMORY: "Memory",
     WORKSPACE: "Workspace",
+    SYSTEM: "System Monitor",
     "AI TOOLS": "AI Tools",
     MEDIA: "Media",
     SETTINGS: "Settings",
@@ -381,7 +420,8 @@ export default function Dashboard() {
       HOME: "Your AI assistant is online and ready.",
       CHAT: "Full conversation view.",
       MEMORY: "Everything NOVA remembers for you.",
-      WORKSPACE: "Tasks, notes and calendar — coming soon.",
+      WORKSPACE: "Tasks, notes and calendar.",
+      SYSTEM: "Live machine diagnostics — suit monitor equivalent.",
       "AI TOOLS": "Quick tools — coming soon.",
       MEDIA: "Videos and media — coming soon.",
       SETTINGS: "Manage your account, AI behavior, memory, and appearance.",
@@ -600,6 +640,98 @@ export default function Dashboard() {
     );
   }
 
+  function renderMonitor() {
+    if (!monitor) {
+      return (
+        <section className="panel page-panel">
+          <div className="empty-note">Reading system sensors…</div>
+        </section>
+      );
+    }
+    const bar = (label, pct, used, total, unit) => (
+      <div className="mon-row" key={label}>
+        <div className="mon-label">{label}</div>
+        <div className="mon-bar"><div className="mon-fill" style={{ width: `${Math.min(pct, 100)}%` }} /></div>
+        <div className="mon-val">{used}{unit} / {total}{unit} · {pct.toFixed(0)}%</div>
+      </div>
+    );
+    const fmtUp = (s) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+    return (
+      <div className="monitor-grid">
+        <section className="panel page-panel mon-hero">
+          <div className="section-title"><span>SYSTEM VITALS</span><span className="live">LIVE</span></div>
+          {bar("CPU", monitor.cpu.percent, monitor.cpu.percent.toFixed(0), "", "%")}
+          <div className="mon-sub">{monitor.cpu.cores} threads · {monitor.cpu.physical} cores{monitor.cpu.freq_mhz ? ` · ${monitor.cpu.freq_mhz} MHz` : ""}</div>
+          {bar("Memory", monitor.memory.percent, monitor.memory.used_gb, monitor.memory.total_gb, " GB")}
+          {bar("Disk", monitor.disk.percent, monitor.disk.used_gb, monitor.disk.total_gb, " GB")}
+          {monitor.battery && (
+            <div className="mon-row">
+              <div className="mon-label">Battery</div>
+              <div className="mon-bar"><div className="mon-fill batt" style={{ width: `${monitor.battery.percent}%` }} /></div>
+              <div className="mon-val">{monitor.battery.percent}% {monitor.battery.plugged ? "· charging" : ""}</div>
+            </div>
+          )}
+          <div className="mon-meta">
+            <span>OS: {monitor.os}</span>
+            <span>Uptime: {fmtUp(monitor.uptime_seconds)}</span>
+            <span>Net: ↑{monitor.network.bytes_sent_mb} MB ↓{monitor.network.bytes_recv_mb} MB</span>
+          </div>
+        </section>
+        <section className="panel page-panel">
+          <div className="section-title"><span>TOP PROCESSES</span></div>
+          {monitor.top_processes.map((p) => (
+            <div className="proc-row" key={p.pid}>
+              <span className="proc-name">{p.name}</span>
+              <span className="proc-cpu">{p.cpu}% cpu</span>
+              <span className="proc-mem">{p.mem}% mem</span>
+            </div>
+          ))}
+        </section>
+      </div>
+    );
+  }
+
+  function renderWorkspace() {
+    const pending = tasks.filter((t) => !t.done);
+    const done = tasks.filter((t) => t.done);
+    return (
+      <div className="settings-grid">
+        <section className="panel page-panel">
+          <div className="section-title"><span>TASKS</span><span>{pending.length} open</span></div>
+          <div className="task-add">
+            <input
+              className="pref-textarea task-input"
+              rows={1}
+              placeholder="Add a task… e.g. Call mom tomorrow"
+              value={newTask}
+              onChange={(e) => setNewTask(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submitTask()}
+            />
+            <button className="btn task-add-btn" onClick={submitTask}>Add</button>
+          </div>
+          {tasks.length === 0 && <div className="empty-note">No tasks yet. Add one above or tell NOVA "remind me …".</div>}
+          {[...pending, ...done].map((t) => (
+            <div className={`task-row ${t.done ? "done" : ""}`} key={t.id}>
+              <button className="task-check" onClick={() => toggleTask(t)}>{t.done ? "✓" : ""}</button>
+              <div className="task-body">
+                <div className="task-title">{t.title}</div>
+                {t.due && <div className="task-due">{t.due}</div>}
+              </div>
+              <button className="sidebar-item-action" onClick={() => removeTask(t)}>×</button>
+            </div>
+          ))}
+        </section>
+        <section className="panel page-panel">
+          <div className="section-title"><span>NOTES & CALENDAR</span></div>
+          <div className="coming-soon" style={{ minHeight: 200 }}>
+            <div className="cs-icon">◌</div>
+            <div className="cs-text">Notes and calendar views are on the roadmap. Tasks are live now.</div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   function renderComingSoon() {
     return (
       <section className="panel page-panel">
@@ -766,9 +898,11 @@ export default function Dashboard() {
           {activePage === "HOME" && renderHome()}
           {activePage === "CHAT" && renderChat()}
           {activePage === "MEMORY" && renderMemory()}
+          {activePage === "WORKSPACE" && renderWorkspace()}
+          {activePage === "SYSTEM" && renderMonitor()}
           {activePage === "SETTINGS" && renderSettings()}
           {activePage === "ADMIN" && <AdminPanel />}
-          {["WORKSPACE", "AI TOOLS", "MEDIA"].includes(activePage) && renderComingSoon()}
+          {["AI TOOLS", "MEDIA"].includes(activePage) && renderComingSoon()}
         </main>
       </div>
 
@@ -1357,6 +1491,38 @@ button { outline: none; }
   font-family: inherit; outline: none; cursor: pointer;
 }
 .pref-select:focus { border-color: rgba(139,92,246,.5); }
+
+/* ---------- system monitor ---------- */
+.monitor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-top: 8px; max-width: 1100px; }
+.mon-hero { grid-column: 1 / -1; }
+.mon-row { display: flex; align-items: center; gap: 14px; padding: 10px 0; }
+.mon-label { width: 70px; color: #9ca3af; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+.mon-bar { flex: 1; height: 8px; border-radius: 4px; background: rgba(255,255,255,.07); overflow: hidden; }
+.mon-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #7c3aed, #a855f7); transition: width .5s ease; }
+.mon-fill.batt { background: linear-gradient(90deg, #34d399, #a3e635); }
+.mon-val { width: 170px; text-align: right; color: #d1d5db; font-size: 12px; font-variant-numeric: tabular-nums; }
+.mon-sub { color: #4b5563; font-size: 11px; margin: -4px 0 8px 84px; }
+.mon-meta { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.06); color: #6b7280; font-size: 12px; }
+.proc-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.04); font-size: 13px; }
+.proc-name { flex: 1; color: #d1d5db; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.proc-cpu { color: #a78bfa; width: 70px; text-align: right; font-variant-numeric: tabular-nums; }
+.proc-mem { color: #6b7280; width: 70px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- tasks ---------- */
+.task-add { display: flex; gap: 10px; margin-bottom: 10px; }
+.task-input { flex: 1; margin-top: 0 !important; }
+.task-add-btn { margin-top: 0 !important; white-space: nowrap; }
+.task-row { display: flex; align-items: center; gap: 12px; padding: 11px 4px; border-bottom: 1px solid rgba(255,255,255,.05); }
+.task-row.done .task-title { text-decoration: line-through; color: #4b5563; }
+.task-check {
+  width: 22px; height: 22px; border-radius: 6px; border: 1px solid rgba(255,255,255,.2);
+  background: transparent; color: #a78bfa; cursor: pointer; font-size: 13px;
+  display: grid; place-items: center; flex-shrink: 0; transition: .15s;
+}
+.task-check:hover { border-color: #a78bfa; }
+.task-body { flex: 1; min-width: 0; }
+.task-title { color: #e5e7eb; font-size: 14px; }
+.task-due { color: #6b7280; font-size: 11px; margin-top: 2px; }
 
 .coming-soon {
   display: flex; flex-direction: column; align-items: center; justify-content: center;

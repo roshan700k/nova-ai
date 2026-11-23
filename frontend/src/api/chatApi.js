@@ -124,3 +124,33 @@ export async function clearMemoryApi() {
 export async function clearAllChatsApi() {
     await api.delete(`/chats`);
 }
+
+// Monitor / Tasks / Research
+export async function getSystemMonitor() {
+    const response = await api.get(`/system-monitor`);
+    return response.data;
+}
+
+export async function getTasks() {
+    const response = await api.get(`/tasks`);
+    return response.data.tasks || [];
+}
+
+export async function addTask(title, notes = "", due = "") {
+    const response = await api.post(`/tasks`, { title, notes, due });
+    return response.data;
+}
+
+export async function updateTask(taskId, fields) {
+    const response = await api.put(`/tasks/${taskId}`, fields);
+    return response.data;
+}
+
+export async function deleteTask(taskId) {
+    await api.delete(`/tasks/${taskId}`);
+}
+
+export async function runResearch(query) {
+    const response = await api.post(`/research`, { query });
+    return response.data;
+}

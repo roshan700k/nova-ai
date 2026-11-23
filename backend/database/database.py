@@ -73,6 +73,18 @@ def create_table():
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS tasks(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        title TEXT NOT NULL,
+        notes TEXT DEFAULT '',
+        due TEXT DEFAULT '',
+        done INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+    )
+    """)
+
     # Migrate existing users table if needed
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'")
@@ -256,5 +268,64 @@ def set_user_settings(user_id, settings: dict):
             "ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value",
             (user_id, str(key)[:50], str(value)[:2000]),
         )
+    conn.commit()
+    conn.close()
+
+
+# ---------- tasks ----------
+
+def _task_row(r):
+    return {"id": r[0], "title": r[1], "notes": r[2], "due": r[3], "done": bool(r[4]), "created_at": r[5]}
+
+
+def list_tasks(user_id):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, title, notes, due, done, created_at FROM tasks "
+        "WHERE user_id IS ? ORDER BY done ASC, created_at DESC LIMIT 200",
+        (user_id,),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [_task_row(r) for r in rows]
+
+
+def create_task(user_id, title, notes="", due=""):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO tasks (user_id, title, notes, due) VALUES (?, ?, ?, ?)",
+        (user_id, title[:300], notes[:2000], due[:100]),
+    )
+    task_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return task_id
+
+
+def update_task(task_id, user_id, fields: dict):
+    allowed = {"title": 300, "notes": 2000, "due": 100}
+    conn = connect()
+    cursor = conn.cursor()
+    for key, maxlen in allowed.items():
+        if key in fields:
+            cursor.execute(
+                f"UPDATE tasks SET {key} = ? WHERE id = ? AND user_id IS ?",
+                (str(fields[key])[:maxlen], task_id, user_id),
+            )
+    if "done" in fields:
+        cursor.execute(
+            "UPDATE tasks SET done = ? WHERE id = ? AND user_id IS ?",
+            (1 if fields["done"] else 0, task_id, user_id),
+        )
+    conn.commit()
+    conn.close()
+
+
+def delete_task(task_id, user_id):
+    conn = connect()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM tasks WHERE id = ? AND user_id IS ?", (task_id, user_id))
     conn.commit()
     conn.close()

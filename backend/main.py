@@ -27,6 +27,9 @@ from api.auth import router as auth_router, current_user
 from api.voice import router as voice_router
 from api.actions import router as actions_router
 from api.admin import router as admin_router
+from api.monitor import router as monitor_router
+from api.tasks import router as tasks_router
+from api.research import router as research_router
 
 app = FastAPI()
 
@@ -34,6 +37,9 @@ app.include_router(auth_router)
 app.include_router(voice_router)
 app.include_router(actions_router)
 app.include_router(admin_router)
+app.include_router(monitor_router)
+app.include_router(tasks_router)
+app.include_router(research_router)
 
 create_table()
 brain = AstraBrain()
@@ -85,6 +91,28 @@ def chat(data: ChatRequest, request: Request):
         conv_id = None  # stale/foreign id -> start fresh
     if conv_id is None:
         conv_id = create_conversation(user_id)
+
+    # Research command: "research X" / "analyse X" / "what's happening"
+    low = data.message.lower().strip()
+    for prefix in ("research ", "analyse ", "analyze ", "research on ", "what's happening"):
+        if low.startswith(prefix):
+            from api.research import do_research
+            add_message(conv_id, "user", data.message)
+            set_conversation_title(conv_id, data.message[:40])
+            q = data.message[len(prefix):].strip() or data.message
+            res = do_research(q, llm=brain.llm)
+            lines = [f"**Research: {res['heading']}**\n", res["answer"], ""]
+            if res["sources"]:
+                lines.append("Sources:")
+                for s in res["sources"][:4]:
+                    lines.append(f"- [{s['title']}]({s['url']})")
+            reply = "\n".join(lines)
+            add_message(conv_id, "nova", reply)
+            return {
+                "reply": reply,
+                "user": user["name"] if user else None,
+                "conversation_id": conv_id,
+            }
 
     add_message(conv_id, "user", data.message)
     set_conversation_title(conv_id, data.message[:40])  # only applies while title is 'New chat'
