@@ -60,10 +60,41 @@ class AstraBrain:
 
     def think(self, message: str, user_id: int | None = None):
         ns = f"u{user_id}" if user_id else None
-        reply = self._think(message, ns)
+        reply = self._think(message, ns, user_id=user_id)
         self.companion.record_exchange(message, self.emotion.detect(message))
         self.log_activity("chat", message[:80])
         return reply
+
+    def _user_prefs(self, user_id: int | None) -> dict:
+        if not user_id:
+            return {}
+        try:
+            from database.database import get_user_settings
+            return get_user_settings(user_id) or {}
+        except Exception:
+            return {}
+
+    def _tone_hint(self, user_id: int | None) -> str:
+        hint = self.companion.tone_hint()
+        prefs = self._user_prefs(user_id)
+        extras = []
+        instr = (prefs.get("instructions") or "").strip()
+        if instr:
+            extras.append(f"User instructions (follow these): {instr}")
+        tone_map = {
+            "concise": "Keep replies very short and to the point.",
+            "creative": "Be creative, vivid and imaginative in replies.",
+        }
+        t = prefs.get("tone")
+        if t in tone_map:
+            extras.append(tone_map[t])
+        if extras:
+            hint = (hint + "\n" if hint else "") + "\n".join(extras)
+        return hint
+
+    def _memory_enabled(self, user_id: int | None) -> bool:
+        prefs = self._user_prefs(user_id)
+        return (prefs.get("memory_enabled") or "1") != "0"
 
     def log_activity(self, kind: str, text: str):
         import time as _t
@@ -76,7 +107,7 @@ class AstraBrain:
         if len(self.activity) > 50:
             self.activity.pop(0)
 
-    def _think(self, message: str, ns: str | None = None):
+    def _think(self, message: str, ns: str | None = None, user_id: int | None = None):
 
         if not message or not message.strip():
             return "I'm here. What would you like to do?"
@@ -90,6 +121,8 @@ class AstraBrain:
         # ===== Memory =====
 
         if text.startswith("remember "):
+            if not self._memory_enabled(user_id):
+                return "Memory is turned off in Settings — enable it to save things."
             content = text.replace("remember ", "")
 
             if "=" in content:
@@ -122,7 +155,7 @@ class AstraBrain:
             llm_reply = self.llm.think(
                 message,
                 self.context.get_history(),
-                tone_hint=self.companion.tone_hint(),
+                tone_hint=self._tone_hint(user_id),
             )
             if llm_reply:
                 self.context.update(message, llm_reply)
@@ -133,7 +166,8 @@ class AstraBrain:
         # ===== Teach =====
 
         if text.startswith("teach:"):
-
+            if not self._memory_enabled(user_id):
+                return "Memory is turned off in Settings — enable it to save things."
             content = text.replace("teach:", "").strip()
 
             if "=" in content:
@@ -166,7 +200,7 @@ class AstraBrain:
         llm_reply = self.llm.think(
             message,
             self.context.get_history(),
-            tone_hint=self.companion.tone_hint(),
+            tone_hint=self._tone_hint(user_id),
         )
 
         if llm_reply:
